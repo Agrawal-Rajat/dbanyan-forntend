@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: dbanyan-frontend
+    env: static
+    buildCommand: |
+      rm -rf node_modules package-lock.json
+      export ROLLUP_NO_NATIVE=1
+      export ESBUILD_BINARY_PATH=""
+      npm install --include=optional
+      npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: NPM_CONFIG_OPTIONAL
+        value: true
+      - key: ROLLUP_NO_NATIVE
+        value: "1"
+      - key: ESBUILD_BINARY_PATH
+        value: ""
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=4096"
+      # Frontend Configuration
+      - key: VITE_FRONTEND_URL
+        value: "https://dbanyan.onrender.com"
+      - key: VITE_APP_NAME
+        value: "Dbanyan Group"
