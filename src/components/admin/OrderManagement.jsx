@@ -76,16 +76,36 @@ import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { motion } from 'framer-motion';
+import GetAllOrderData from '../../API_FILES/order_apis/GetAllOrderData';
+import CustomLoader from '../../Loader/CustomLoader';
+import * as XLSX from 'xlsx';
+import OrderDetailsModal from './OrderDetailsModal';
+import { printData } from '../../utils/printUtils';
 
 const OrderManagement = () => {
   // Component state
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [opened, setOpened] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+    async function getordersdata(){
+      setLoading(true)
+      const res=await GetAllOrderData()
+      // console.log(res)
+      if(res?.data){
+        setLoading(false)
+        setOrders(res?.data)
+      }
+    }
+
+  useEffect(()=>{
+    getordersdata()
+  },[])
   const [orderModalOpened, { open: openOrderModal, close: closeOrderModal }] = useDisclosure(false);
   const [updateModalOpened, { open: openUpdateModal, close: closeUpdateModal }] = useDisclosure(false);
   const [bulkModalOpened, { open: openBulkModal, close: closeBulkModal }] = useDisclosure(false);
   const [refundModalOpened, { open: openRefundModal, close: closeRefundModal }] = useDisclosure(false);
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  // const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
   
   // Advanced filters and pagination
@@ -305,8 +325,8 @@ const OrderManagement = () => {
     processing: orders.filter(o => o.status === 'processing').length,
     shipped: orders.filter(o => o.status === 'shipped').length,
     completed: orders.filter(o => o.status === 'completed').length,
-    totalRevenue: orders.reduce((sum, o) => sum + o.total_amount, 0),
-    avgOrderValue: orders.length > 0 ? orders.reduce((sum, o) => sum + o.total_amount, 0) / orders.length : 0
+    totalRevenue: orders.reduce((sum, o) => sum + o.amount, 0),
+    avgOrderValue: orders.length > 0 ? orders.reduce((sum, o) => sum + o.amount, 0) / orders.length : 0
   };
 
   // Format currency
@@ -323,8 +343,64 @@ const OrderManagement = () => {
     });
   };
 
+
+
+
+const export_to_excel = (data, fileName) => {
+  if (!Array.isArray(data) || data.length === 0) {
+    alert("No data to export");
+    return;
+  }
+
+  setLoading(true);
+
+  const workbook = XLSX.utils.book_new();
+
+  // Flatten data
+  const flattened = data.map((item) => ({
+    ...item,
+    ...item.products, // merge product fields
+    ...item.users,    // merge user fields
+  }));
+
+  // Remove nested objects (optional)
+  flattened.forEach((item) => {
+    delete item.products;
+    delete item.users;
+  });
+
+  // Convert to sheet
+  const worksheet = XLSX.utils.json_to_sheet(flattened);
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
+
+  // Save file
+  XLSX.writeFile(workbook, fileName);
+
+  setLoading(false);
+};
+
+ const handlePrint = (data) => {
+  const product = data.products; // single product object
+  const headers = ["Field", "Value"];
+  const rows = [
+    ["Product Name", product.name],
+    ["Quantity", data.quantity],
+    ["Price", product.price],
+    ["Total", data.amount],
+    ["Customer", data.users.full_name || "N/A"],
+    ["Order ID", data.order_id || "N/A"],
+    ["Date", data.created_at || new Date().toLocaleDateString()],
+  ];
+
+  printData(`${product.name}-Invoice`, headers, rows,"https://example.com/logo.png");
+};
+
+
   return (
     <Box>
+      {
+        loading && <CustomLoader/>
+      }
       {/* Page Header */}
       <Group justify="space-between" mb="xl">
         <div>
@@ -333,10 +409,11 @@ const OrderManagement = () => {
         </div>
         
         <Group>
-          <Button leftSection={<IconDownload size={16} />} variant="light">
+                
+          <Button onClick={()=>export_to_excel(orders,"orders.xlsx")} leftSection={<IconDownload size={16} />} variant="light">
             Export Orders
           </Button>
-          <Button leftSection={<IconRefresh size={16} />} onClick={() => setOrders(mockOrders)}>
+          <Button leftSection={<IconRefresh size={16} />} onClick={() => getordersdata()}>
             Refresh
           </Button>
         </Group>
@@ -408,7 +485,7 @@ const OrderManagement = () => {
       {/* Orders Table */}
       <Card shadow="sm" p="lg" radius="md" withBorder>
         <Title order={4} mb="md">Recent Orders</Title>
-        {orders.length === 0 ? (
+        {orders?.length === 0 ? (
           <Center py="xl">
             <Stack align="center">
               <IconShoppingCart size={48} color="gray" />
@@ -432,38 +509,36 @@ const OrderManagement = () => {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {orders.map((order, index) => (
+              {orders?.map((order, index) => (
                 <motion.tr
-                  key={order.id}
+                  key={order.order_id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
                 >
                   <Table.Td>
                     <div>
-                      <Text size="sm" fw={500}>{order.order_number}</Text>
-                      <Text size="xs" c="dimmed">#{order.id}</Text>
+                      <Text size="sm" fw={500}>{order.order_id}</Text>
+                      <Text size="xs" c="dimmed">#{order.razorpay_order_id}</Text>
                     </div>
                   </Table.Td>
                   <Table.Td>
                     <Group gap="sm">
                       <Avatar size="sm" radius="xl" color="blue">
-                        {order.customer.avatar}
+                        {order?.users?.full_name}
                       </Avatar>
                       <div>
-                        <Text size="sm" fw={500}>{order.customer.name}</Text>
-                        <Text size="xs" c="dimmed">{order.customer.email}</Text>
+                        <Text size="sm" fw={500}>{order?.users?.full_name}</Text>
+                        <Text size="xs" c="dimmed">{order?.users?.email}</Text>
                       </div>
                     </Group>
                   </Table.Td>
                   <Table.Td>
-                    <Text size="sm" fw={500}>{order.items.length} item(s)</Text>
-                    <Text size="xs" c="dimmed">
-                      {order.items.reduce((sum, item) => sum + item.quantity, 0)} units
-                    </Text>
+                    <Text size="sm" fw={500}>{order.quantity} item(s)</Text>
+                    
                   </Table.Td>
                   <Table.Td>
-                    <Text size="sm" fw={600}>{formatCurrency(order.total_amount)}</Text>
+                    <Text size="sm" fw={600}>₹{order.amount}</Text>
                   </Table.Td>
                   <Table.Td>
                     <Badge
@@ -481,12 +556,18 @@ const OrderManagement = () => {
                     <Group gap="xs">
                       <Tooltip label="View Order">
                         <ActionIcon variant="light" size="sm">
-                          <IconEye size={14} />
+                          <IconEye onClick={() => {
+          setSelectedOrder(order);
+          setOpened(true);
+        }} size={14} />
                         </ActionIcon>
                       </Tooltip>
                       <Tooltip label="Edit Order">
                         <ActionIcon variant="light" size="sm">
-                          <IconEdit size={14} />
+                          <IconEdit onClick={() => {
+          setSelectedOrder(order);
+          setOpened(true);
+        }} size={14} />
                         </ActionIcon>
                       </Tooltip>
                       <Menu shadow="md" width={160}>
@@ -496,12 +577,12 @@ const OrderManagement = () => {
                           </ActionIcon>
                         </Menu.Target>
                         <Menu.Dropdown>
-                          <Menu.Item leftSection={<IconPrinter size={14} />}>
+                          <Menu.Item onClick={()=>handlePrint(order)} leftSection={<IconPrinter size={14} />}>
                             Print Invoice
                           </Menu.Item>
-                          <Menu.Item leftSection={<IconClipboard size={14} />}>
+                          {/* <Menu.Item leftSection={<IconClipboard size={14} />}>
                             Print Label
-                          </Menu.Item>
+                          </Menu.Item> */}
                           <Menu.Item leftSection={<IconMail size={14} />}>
                             Send Email
                           </Menu.Item>
@@ -514,6 +595,14 @@ const OrderManagement = () => {
             </Table.Tbody>
           </Table>
         )}
+        {selectedOrder && (
+        <OrderDetailsModal
+          opened={opened}
+          onClose={() => setOpened(false)}
+          order={selectedOrder}
+          
+        />
+      )}
       </Card>
     </Box>
   );

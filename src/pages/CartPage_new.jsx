@@ -74,7 +74,7 @@ const CartPage = () => {
     if (items.length === 0) {
       dispatch(addNotification({
         type: 'error',
-        message: 'Your cart is empty',
+        message: 'Your cart is emptyyyyyyyyyyy',
         duration: 3000
       }));
       return;

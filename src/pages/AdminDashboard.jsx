@@ -9,7 +9,6 @@ import {
   Container, 
   Box,
   Alert,
-  Loader,
   Center,
   Stack,
   Text
@@ -22,61 +21,64 @@ import OrderManagement from '../components/admin/OrderManagement';
 import UserManagement from '../components/admin/UserManagement';
 import AnalyticsDashboard from '../components/admin/AnalyticsDashboard';
 import { getCurrentUser, logoutUser } from '../store/slices/authSlice';
-
+import Verify from '../API_FILES/auth_apis/Verify';
+import Logout from '../API_FILES/auth_apis/Logout';
+import CustomLoader from '../Loader/CustomLoader';
+import CategoryManagement from '../components/admin/Categories';
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [activeView, setActiveView] = useState('dashboard');
-
-  // Get auth state from Redux
-  const { user, isAuthenticated, isLoading } = useSelector(state => state.auth);
-
-  console.log('🔐 [ADMIN DASHBOARD] Auth state:', { 
-    user: user ? { email: user.email, isAdmin: user.is_admin } : null, 
-    isAuthenticated, 
-    isLoading 
-  });
-
-  // Check authentication and admin privileges
-  useEffect(() => {
-    const checkAuth = async () => {
-      // If we have a token but no user, fetch the user
-      const token = localStorage.getItem('token');
-      if (token && !user && !isLoading) {
-        console.log('📡 [ADMIN DASHBOARD] Token found, fetching user...');
-        try {
-          await dispatch(getCurrentUser()).unwrap();
-        } catch (error) {
-          console.error('❌ [ADMIN DASHBOARD] Failed to get user:', error);
-          navigate('/login');
-          return;
-        }
-      }
-
-      // If no token at all, redirect to login
-      if (!token) {
-        console.log('🚫 [ADMIN DASHBOARD] No token found, redirecting to login');
-        navigate('/login');
-        return;
-      }
-
-      // If user is loaded but not admin, redirect to home
-      if (user && !user.is_admin) {
-        console.log('⛔ [ADMIN DASHBOARD] User is not admin, redirecting to home');
-        navigate('/');
-        return;
+  const [isAuthenticated,setisAuthnticated] = useState(false);
+    const [name,setname] = useState("");
+    const [admin,setadmin] = useState(false);
+    const [loading,setloading]=useState(false)
+const scheduleAutoLogout = () => {
+      const expiry = localStorage.getItem("tehunyzu@37673");
+      if (!expiry) return;
+    
+      const timeout = expiry - Date.now();
+      if (timeout > 0) {
+        setTimeout(() => {
+          logoutUser(); // clear storage, redirect
+        }, timeout);
+      } else {
+        logoutUser();
       }
     };
+    const verifyuser=async()=>{
+      setloading(true)
+      const expiry=localStorage.getItem('tehunyzu@37673')
+      const timeout = expiry - Date.now();
+      if(timeout>0 && expiry){
+        const res=await Verify()
+        if(res?.message=="Login verified successfully"){
+          setisAuthnticated(true)
+          setname(res?.userId)
+          setadmin(res?.admin)
+          console.log("yedhwb2781980@998")
+          // console.log(res)
+          setloading(false)
+        }
+        
+      }
+      
+    }
+    
+    useEffect(()=>{
+    scheduleAutoLogout()
+    verifyuser()
+    
+    },[])
+    const logoutUser = async() => {
+            const res=await Logout()
+      
+    };
 
-    checkAuth();
-  }, [user, isAuthenticated, isLoading, dispatch, navigate]);
+  // // Get auth state from Redux
+  // const { user, isAuthenticated, isLoading } = useSelector(state => state.auth);
 
-  const logout = async () => {
-    console.log('🚪 [ADMIN DASHBOARD] Admin logout');
-    await dispatch(logoutUser());
-    navigate('/');
-  };
-
+  
   // Store admin state in localStorage
   useEffect(() => {
     if (activeView) {
@@ -99,25 +101,14 @@ const AdminDashboard = () => {
   }, []);
 
   // Show loading state if any data is loading
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <Container size="xl">
-          <Center className="py-12">
-            <Stack align="center" spacing="md">
-              <Loader size="lg" color="#2C5F2D" />
-              <Text style={{ fontFamily: '"Inter", sans-serif' }}>
-                Loading admin dashboard...
-              </Text>
-            </Stack>
-          </Center>
-        </Container>
-      </div>
+      <CustomLoader/>
     );
   }
 
   // Show unauthorized access message if user is not admin
-  if (!user || !user.is_admin) {
+  if (!admin ) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
         <Container size="xl">
@@ -142,6 +133,8 @@ const AdminDashboard = () => {
         return <AdminDashboardOverview />;
       case 'products':
         return <ProductManagement />;
+      case 'category':
+        return <CategoryManagement />;
       case 'orders':
         return <OrderManagement />;
       case 'customers':

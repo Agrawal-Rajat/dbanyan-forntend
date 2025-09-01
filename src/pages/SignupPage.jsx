@@ -7,10 +7,17 @@ import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 // import { useUserStore } from '../store';
+import "react-toastify/dist/ReactToastify.css";
+import { toast, ToastContainer } from "react-toastify";
+
 import { IconLeaf, IconMail, IconLock, IconUser, IconPhone, IconEye, IconEyeOff, IconAlertCircle, IconCheck } from '@tabler/icons-react';
+import Signup from '../API_FILES/auth_apis/Signup';
+import { set } from 'react-hook-form';
+import CustomLoader from '../Loader/CustomLoader';
 
 const SignupPage = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
   // Mock functions (until backend is rebuilt)
   const signup = async (userData) => {
@@ -65,17 +72,43 @@ const SignupPage = () => {
     if (passwordStrength < 3) {
       return;
     }
-    
-    const result = await signup({
-      full_name: `${formData.firstName} ${formData.lastName}`.trim(),
-      email: formData.email,
-      phone: formData.phone,
-      password: formData.password
-    });
-    
-    if (result.success) {
-      navigate('/');
+    setLoading(true);
+    // console.log(formData);
+    const res=await Signup(formData)
+    console.log(res);
+    if(res.message==="User Registered Successfully"){
+      setLoading(false);
+      toast.success("Signup SuccessFull", {
+              position: "top-center",
+            });
+      setTimeout(()=>{
+        navigate('/login');
+      },1000)
     }
+    else{
+      setLoading(false);
+      toast.error("Try using different email and mobile number", {
+              position: "top-center",
+            });
+            setFormData({
+              firstName: '',
+              lastName: '',
+              email: '',
+              phone: '',
+              password: '',
+              confirmPassword: ''
+            });
+    }
+    // const result = await signup({
+    //   full_name: `${formData.firstName} ${formData.lastName}`.trim(),
+    //   email: formData.email,
+    //   phone: formData.phone,
+    //   password: formData.password
+    // });
+    
+    // if (result.success) {
+    //   navigate('/');
+    // }
   };
 
   const handleChange = (field) => (e) => {
@@ -110,6 +143,10 @@ const SignupPage = () => {
         <title>Sign Up | Dbanyan Group</title>
         <meta name="description" content="Create your Dbanyan Group account to access exclusive features and track your wellness journey." />
       </Helmet>
+        <ToastContainer />
+        {
+          loading && <CustomLoader/>
+        }
 
       <div 
         className="min-h-screen flex items-center justify-center py-12 px-4"

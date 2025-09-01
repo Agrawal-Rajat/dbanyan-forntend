@@ -33,12 +33,14 @@ import {
   IconPlus,
   IconMinus
 } from '@tabler/icons-react';
+import GetProductByIdData from '../API_FILES/product_apis/GetProductByIdData';
 
 const ProductDetailPage = () => {
   const { uid } = useParams(); // This should be the product_id UUID
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
+  const cart=useSelector((state)=>state.wishlistandcart.cart)
+  const wishlist=useSelector((state)=>state.wishlistandcart.wishlist)
   // Get Redux state
   const { currentProduct: product, isLoading, error } = useSelector(state => state.products);
 
@@ -52,10 +54,14 @@ const ProductDetailPage = () => {
   const [quantity, setQuantity] = useState(1);
 
   // Fetch product when component mounts or uid changes
+  const getprbyid=async(uid)=>{
+    const res=await GetProductByIdData(uid)
+    console.log(res)
+  }
   useEffect(() => {
     if (uid) {
       console.log('🚀 [PRODUCT DETAIL PAGE] Fetching product with ID:', uid);
-      dispatch(fetchProductById(uid));
+      getprbyid(uid)
     } else {
       console.warn('⚠️ [PRODUCT DETAIL PAGE] No UID provided in params');
     }

@@ -27,15 +27,16 @@ import {
 } from '@tabler/icons-react';
 import { addToCart } from '../../store/slices/cartSlice';
 import { addNotification } from '../../store/slices/notificationSlice';
-
-const ProfessionalProductCard = ({ 
-  product, 
-  showQuickView = true, 
+import { API_URL } from '../../NwConfig';
+const ProfessionalProductCard = ({
+  product,
+  showQuickView = true,
   onAddToCart,
   onViewDetails,
   onToggleWishlist,
   onAddToComparison,
   isInWishlist = false,
+  isInCart,
   isInComparison = false,
   viewMode = 'grid'
 }) => {
@@ -48,53 +49,63 @@ const ProfessionalProductCard = ({
   const reviewCount = 127; // This would come from actual reviews
 
   // Calculate savings
-  const savings = product.compare_price ? product.compare_price - product.price : 0;
-  const savingsPercent = savings > 0 ? Math.round((savings / product.compare_price) * 100) : 0;
+  const savings = product.compare_at_price ? product.compare_at_price - product.price : 0;
+  const savingsPercent = savings > 0 ? Math.round((savings / product.compare_at_price) * 100) : 0;
 
   // Trust signals
   const getTrustBadges = () => {
     const badges = [];
-    
+
     if (product.is_featured) {
       badges.push({ text: "Dbanyan's Choice", color: "orange", icon: IconStar });
     }
-    
-    if (product.stock_quantity > 50) {
+
+    if (product.quantity > 50) {
       badges.push({ text: "In Stock", color: "green" });
-    } else if (product.stock_quantity > 0) {
+    } else if (product.quantity > 0) {
       badges.push({ text: "Limited Stock", color: "yellow" });
     }
-    
+
     if (product.price >= 1000) {
       badges.push({ text: "Free Delivery", color: "blue", icon: IconTruck });
     }
-    
+
     return badges;
   };
-
+// console.log(product)
   const handleAddToCart = (e) => {
     e.stopPropagation();
-    
-    dispatch(addToCart({
-      productId: product.product_id,
-      productName: product.name,
-      price: product.price,
-      quantity: 1,
-      image: product.images?.[0] || '/images/moringaPowderPic.jpg'
-    }));
+const expiry = localStorage.getItem("tehunyzu@37673");
+    if(!expiry){
+      toast.error("Signup or Login First", {
+                    position: "top-center",
+                  });
+                  setTimeout(() => {
+                    
+                    navigate("/signup")
+                  }, 1000);
 
-    dispatch(addNotification({
-      type: 'cart-add',
-      message: `${product.name} added to cart`,
-      duration: 3000
-    }));
+    }
+    // dispatch(addToCart({
+    //   productId: product.product_id,
+    //   productName: product.name,
+    //   price: product.price,
+    //   quantity: 1,
+    //   image: product.images?.[0] || '/images/moringaPowderPic.jpg'
+    // }));
+
+    // dispatch(addNotification({
+    //   type: 'cart-add',
+    //   message: `${product.name} added to cart`,
+    //   duration: 3000
+    // }));
 
     console.log('🛒 [PRODUCT CARD] Added to cart:', product.name);
   };
 
   const handleWishlist = (e) => {
     e.stopPropagation();
-    
+
     dispatch(addNotification({
       type: 'wishlist',
       message: isInWishlist ? 'Removed from wishlist' : 'Added to wishlist',
@@ -107,7 +118,8 @@ const ProfessionalProductCard = ({
     if (onViewDetails) {
       onViewDetails();
     } else {
-      navigate(`/products/${product.product_id}`);
+      // navigate(`/products/${product.id}`);
+      window.location.href=`/products/${product.id}`
     }
   };
 
@@ -115,7 +127,8 @@ const ProfessionalProductCard = ({
     if (onViewDetails) {
       onViewDetails();
     } else {
-      navigate(`/products/${product.product_id}`);
+      // navigate(`/products/${product.id}`);
+      window.location.href=`/products/${product.id}`
     }
   };
 
@@ -179,8 +192,14 @@ const ProfessionalProductCard = ({
           )}
 
           {/* Product Image */}
+          {/* <h1>{API_URL}\{product.images?.[0]}</h1> */}
           <Image
-            src={product.images?.[0] || '/images/moringaPowderPic.jpg'}
+            src={
+              product.images?.[0]
+                ? `${API_URL}/${product.images[0]}`
+                : '/images/moringaPowderPic.jpg'
+            }
+
             alt={product.name}
             height={220}
             fit="cover"
@@ -276,7 +295,7 @@ const ProfessionalProductCard = ({
                 </Text>
               )}
             </Group>
-            
+
             {savings > 0 && (
               <Text size="xs" c="green" fw={500}>
                 Save ₹{savings}
@@ -315,7 +334,7 @@ const ProfessionalProductCard = ({
                 <IconHeart size={16} />
               </ActionIcon>
             </Tooltip>
-            
+
             <Tooltip label={isInComparison ? "In comparison" : "Add to compare"}>
               <ActionIcon
                 variant={isInComparison ? "filled" : "outline"}
@@ -334,26 +353,33 @@ const ProfessionalProductCard = ({
 
           {/* Action Button */}
           <Button
-            fullWidth
-            variant="light"
-            color="green"
-            leftSection={<IconShoppingCart size={16} />}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onAddToCart) {
-                onAddToCart(1);
-              } else {
-                handleAddToCart();
-              }
-            }}
-            disabled={product.stock_quantity === 0}
-            style={{
-              fontWeight: 600,
-              transition: 'all 0.2s ease'
-            }}
-          >
-            {product.stock_quantity === 0 ? 'Out of Stock' : 'Add to Cart'}
-          </Button>
+  fullWidth
+  variant={isInCart ? "outline" : "light"}
+  color="green"
+  leftSection={<IconShoppingCart size={16} />}
+  onClick={(e) => {
+    e.stopPropagation();
+    if (!isInCart) {
+      if (onAddToCart) {
+        onAddToCart(1);
+      } else {
+        handleAddToCart();
+      }
+    }
+  }}
+  disabled={product.quantity === 0 || isInCart}
+  style={{
+    fontWeight: 600,
+    transition: 'all 0.2s ease'
+  }}
+>
+  {product.quantity === 0
+    ? 'Out of Stock'
+    : isInCart
+    ? 'Already in Cart'
+    : 'Add to Cart'}
+</Button>
+
         </Stack>
       </Card>
     </motion.div>

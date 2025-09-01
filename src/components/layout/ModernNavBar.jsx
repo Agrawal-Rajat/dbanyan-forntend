@@ -7,6 +7,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDisclosure } from '@mantine/hooks';
 import SmartSearchBar from '../ui/SmartSearchBar';
+import Verify from '../../API_FILES/auth_apis/Verify';
+import Logout from '../../API_FILES/auth_apis/Logout';
+import { useDispatch,useSelector } from 'react-redux';
+import { addcart,addwishlist, clearCartData, clearWishlistData } from '../../store/slices/WishlistAndCartSlice';
 // import { useCartStore, useUserStore } from '../../store';
 import { 
   IconLeaf, 
@@ -16,24 +20,81 @@ import {
   IconUserPlus,
   IconLogout,
   IconDashboard,
-  IconChevronDown
+  IconChevronDown,
+  IconHeart
 } from '@tabler/icons-react';
 
 const ModernNavBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch=useDispatch()
   const [opened, { toggle, close }] = useDisclosure(false);
   const [scrolled, setScrolled] = useState(false);
-
+  const cart=useSelector((state)=>state.wishlistandcart.cart)
+          const wishlist=useSelector((state)=>state.wishlistandcart.wishlist)
   // Mock data (until backend is rebuilt)
   const cartItems = [];
   const cartItemCount = 0;
   const user = null;
-  const isAuthenticated = false;
-  const logout = () => {
-    console.log('Logout clicked');
-    // TODO: Implement with Redux when ready
-  };
+  const [isAuthenticated,setisAuthnticated] = useState(false);
+  const [name,setname] = useState("");
+  const [admin,setadmin] = useState(false);
+ const scheduleAutoLogout = () => {
+      const expiry = localStorage.getItem("tehunyzu@37673");
+      if (!expiry) return;
+    
+      const timeout = expiry - Date.now();
+      if (timeout > 0) {
+        setTimeout(() => {
+          logoutUser(); // clear storage, redirect
+        }, timeout);
+      } else {
+        logoutUser();
+      }
+    };
+    const verifyuser=async()=>{
+      const expiry=localStorage.getItem('tehunyzu@37673')
+      const timeout = expiry - Date.now();
+      if(timeout>0 && expiry){
+        const res=await Verify()
+        if(res?.message=="Login verified successfully"){
+          setisAuthnticated(true)
+          setname(res?.userId)
+          setadmin(res?.admin)
+          console.log("yedhwb2781980@998")
+          dispatch(clearCartData())
+          dispatch(clearWishlistData())
+          // console.log(res)
+          if(res?.cartlist && Array.isArray(res?.cartlist) && res?.cartlist?.length>=1){
+            res?.cartlist?.forEach((item)=>dispatch(addcart(item)))
+          }
+          if(res?.wishlist && Array.isArray(res?.wishlist) && res?.wishlist?.length>=1){
+            res?.wishlist?.forEach((item)=>dispatch(addwishlist(item)))
+          }
+          // console.log(cart,wishlist)
+        }
+        
+      }
+      
+    }
+    
+    useEffect(()=>{
+    scheduleAutoLogout()
+    verifyuser()
+    
+    },[])
+//     useEffect(() => {
+//   console.log("Cart updated:", cart);
+// }, [cart]);
+
+// useEffect(() => {
+//   console.log("Wishlist updated:", wishlist);
+// }, [wishlist]);
+    const logoutUser = async() => {
+            const res=await Logout()
+      
+    };
+
 
   // Scroll effect
   useEffect(() => {
@@ -140,19 +201,34 @@ const ModernNavBar = () => {
               </div>
               
               {/* Cart Button */}
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <motion.div className='space-x-3' whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <UnstyledButton
                   onClick={() => navigate('/cart')}
                   className="relative p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors duration-200"
                 >
                   <IconShoppingCart className="w-5 h-5 text-gray-700" />
-                  {cartItemCount > 0 && (
+                  {cart.length > 0 && (
                     <Badge
                       size="xs"
                       className="absolute -top-1 -right-1 bg-emerald-500 text-white min-w-5 h-5"
                       style={{ fontSize: '10px' }}
                     >
-                      {cartItemCount}
+                      {cart.length}
+                    </Badge>
+                  )}
+                </UnstyledButton>
+                <UnstyledButton
+                  onClick={() => navigate('/wishlist')}
+                  className="relative p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors duration-200"
+                >
+                  <IconHeart className="w-5 h-5 text-gray-700" />
+                  {wishlist.length > 0 && (
+                    <Badge
+                      size="xs"
+                      className="absolute -top-1 -right-1 bg-emerald-500 text-white min-w-5 h-5"
+                      style={{ fontSize: '10px' }}
+                    >
+                      {wishlist.length}
                     </Badge>
                   )}
                 </UnstyledButton>
@@ -164,16 +240,16 @@ const ModernNavBar = () => {
                   <Menu.Target>
                     <UnstyledButton className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
                       <Avatar size="sm" className="bg-emerald-500">
-                        {user?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                        {name?.charAt(0).toLocaleUpperCase() || 'U'}
                       </Avatar>
                       <Text size="sm" fw={500} style={{ fontFamily: '"Inter", sans-serif' }}>
-                        {user?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'User'}
+                        {name}
                       </Text>
                       <IconChevronDown className="w-4 h-4 text-gray-500" />
                     </UnstyledButton>
                   </Menu.Target>
                   <Menu.Dropdown>
-                    {user?.role === 'admin' && (
+                    {admin && (
                       <Menu.Item 
                         leftSection={<IconDashboard className="w-4 h-4" />}
                         onClick={() => navigate('/admin')}
@@ -190,10 +266,7 @@ const ModernNavBar = () => {
                     <Menu.Divider />
                     <Menu.Item 
                       leftSection={<IconLogout className="w-4 h-4" />}
-                      onClick={() => {
-                        logout();
-                        navigate('/');
-                      }}
+                      onClick={() => logoutUser()}
                       color="red"
                     >
                       Logout
@@ -288,9 +361,27 @@ const ModernNavBar = () => {
               <IconShoppingCart className="w-5 h-5 text-gray-700" />
               <Text style={{ fontFamily: '"Inter", sans-serif' }}>Cart</Text>
             </Group>
-            {cartItemCount > 0 && (
+            {cart.length > 0 && (
               <Badge size="sm" className="bg-emerald-500">
-                {cartItemCount}
+                {cart.length}
+              </Badge>
+            )}
+          </UnstyledButton>
+
+          <UnstyledButton
+            onClick={() => {
+              navigate('/wishlist');
+              close();
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors duration-200"
+          >
+            <Group gap="sm">
+              <IconHeart className="w-5 h-5 text-gray-700" />
+              <Text style={{ fontFamily: '"Inter", sans-serif' }}>Wishlist</Text>
+            </Group>
+            {wishlist.length > 0 && (
+              <Badge size="sm" className="bg-emerald-500">
+                {wishlist.length}
               </Badge>
             )}
           </UnstyledButton>
@@ -328,7 +419,7 @@ const ModernNavBar = () => {
                 variant="subtle"
                 color="red"
                 onClick={() => {
-                  logout();
+                  logoutUser();
                   close();
                 }}
                 fullWidth

@@ -1,111 +1,122 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  Container,
-  Grid,
-  Card,
-  Title,
-  Text,
-  Button,
-  Group,
-  Stack,
-  Divider,
-  ActionIcon,
-  NumberInput,
-  Image,
-  Paper,
-  Badge,
-  Anchor,
-  Select,
-  Modal,
-  Alert
+  Container, Grid, Card, Title, Text, Button, Group, Stack, Divider, ActionIcon,
+  NumberInput, Image, Paper, Badge, Select, Modal, Alert
 } from '@mantine/core';
-import { removeFromCart, updateQuantity, clearCart } from '../../store/slices/cartSlice';
 import { addNotification } from '../../store/slices/notificationSlice';
 import ProfessionalBreadcrumbs from './ProfessionalBreadcrumbs';
 import { TrustSignals, SecurityBadges } from './TrustSignals';
 import {
-  IconShoppingCart,
-  IconTrash,
-  IconPlus,
-  IconMinus,
-  IconArrowLeft,
-  IconTruck,
-  IconShield,
-  IconHeart,
-  IconGift,
-  IconTicket,
-  IconLock,
-  IconCreditCard,
-  IconCheck,
-  IconX
+  IconShoppingCart, IconTrash, IconPlus, IconMinus, IconArrowLeft, IconTruck,
+  IconHeart, IconTicket, IconLock, IconX
 } from '@tabler/icons-react';
-
+import verifyuser from '../../API_FILES/Verify';
+import "react-toastify/dist/ReactToastify.css";
+import { toast, ToastContainer } from "react-toastify";
+import GetProductByIdData from '../../API_FILES/product_apis/GetProductByIdData';
+import CustomLoader from '../../Loader/CustomLoader';
+import { API_URL,RAZORPAY_KEY_ID } from '../../NwConfig';
+import RemoveFromCart from '../../API_FILES/product_apis/RemoveFromCart';
+import { removecart } from '../../store/slices/WishlistAndCartSlice';
+import VerifyOrderData from '../../API_FILES/order_apis/VerifyOrderData';
+import CreateOrder from '../../API_FILES/order_apis/CreateOrder';
 const EnhancedCartPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  
-  // Get cart state from Redux
-  const { items, total } = useSelector(state => state.cart);
-  
-  // Local state for save for later items
+  const cart = useSelector(state => state.wishlistandcart.cart);
+
+  const [spinner, setSpinner] = useState(false);
+  const [cartdata, setCartdata] = useState([]);
+  const [counters, setCounters] = useState({}); // Track per-item counter
   const [savedItems, setSavedItems] = useState([]);
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [showPromoModal, setShowPromoModal] = useState(false);
 
-  // Mock delivery and tax calculations
-  const subtotal = total;
-  const deliveryCharge = total >= 1000 ? 0 : 99;
-  const tax = Math.round(total * 0.05); // 5% tax
-  const discount = appliedPromo ? Math.round(total * 0.1) : 0; // 10% discount
-  const finalTotal = subtotal + deliveryCharge + tax - discount;
+  // Fetch product data
+  const getCartDataForUser = async (cart) => {
+    try {
+      setSpinner(true);
+      const data = await Promise.all(cart.map(async (item) => {
+        const res = await GetProductByIdData(item);
+        return res.data; // only data
+      }));
+      setCartdata(data);
 
-  // Cart operations with notifications
-  const handleRemoveItem = (productId, productName) => {
-    console.log('🗑️ [ENHANCED CART] Removing item:', productId);
-    dispatch(removeFromCart(productId));
-    dispatch(addNotification({
-      type: 'info',
-      title: 'Item Removed',
-      message: `${productName} removed from cart`
-    }));
+      // Initialize counters to 1
+      const initCounters = {};
+      data.forEach(item => { initCounters[item.id] = 1; });
+      setCounters(initCounters);
+    } catch (error) {
+      console.error("Error fetching cart data:", error);
+    } finally {
+      setSpinner(false);
+    }
   };
 
-  const handleUpdateQuantity = (productId, newQuantity, productName) => {
-    if (newQuantity <= 0) {
-      handleRemoveItem(productId, productName);
-      return;
+  useEffect(() => { getCartDataForUser(cart); }, [cart]);
+
+  // Counter handlers
+ const handleUpdateCounter = (productId, newCount, price) => {
+  setCounters(prev => ({
+    ...prev,
+    [productId]: {
+      count: newCount < 1 ? 1 : newCount,
+      price: price
     }
-    
-    console.log('📝 [ENHANCED CART] Updating quantity:', { productId, newQuantity });
-    dispatch(updateQuantity({ productId, quantity: newQuantity }));
+  }));
+};
+
+  // Order summary calculations
+  const subtotal = cartdata.reduce(
+    (acc, item) => acc + item.price * (counters[item.id]?.count || 1), 0
+  );
+  const deliveryCharge = subtotal >= 1000 ? 0 : 99;
+  const tax = Math.round(subtotal * 0.05);
+  const discount = appliedPromo ? Math.round(subtotal * appliedPromo.discount) : 0;
+  // const finalTotal = subtotal + deliveryCharge + tax - discount;
+  const finalTotal=subtotal
+
+  // Cart operations
+  const handleRemoveItem = async(productId, productName) => {
+    // console.log(productId)
+    setSpinner(true)
+    const form={id:productId}
+    const res=await RemoveFromCart(form)
+    // console.log(res)
+    if(res.message==="Removed From Cart"){
+      setSpinner(false)
+      dispatch(removecart(productId.toString()))
+    }
   };
 
   const handleSaveForLater = (item) => {
     setSavedItems(prev => [...prev, item]);
-    dispatch(removeFromCart(item.productId));
+    handleRemoveItem(item.id, item.name);
     dispatch(addNotification({
       type: 'success',
       title: 'Saved for Later',
-      message: `${item.productName} moved to saved items`
+      message: `${item.name} moved to saved items`
     }));
   };
 
   const handleMoveToCart = (item) => {
-    setSavedItems(prev => prev.filter(saved => saved.productId !== item.productId));
+    setSavedItems(prev => prev.filter(saved => saved.id !== item.id));
+    setCartdata(prev => [...prev, item]);
+    setCounters(prev => ({ ...prev, [item.id]: 1 }));
     dispatch(addNotification({
       type: 'success',
       title: 'Moved to Cart',
-      message: `${item.productName} added back to cart`
+      message: `${item.name} added back to cart`
     }));
   };
 
   const handleRemoveSaved = (productId, productName) => {
-    setSavedItems(prev => prev.filter(item => item.productId !== productId));
+    setSavedItems(prev => prev.filter(item => item.id !== productId));
     dispatch(addNotification({
       type: 'info',
       title: 'Item Removed',
@@ -114,9 +125,7 @@ const EnhancedCartPage = () => {
   };
 
   const handleApplyPromo = () => {
-    // Mock promo code validation
     const validPromoCodes = ['SAVE10', 'WELCOME20', 'FIRST15'];
-    
     if (validPromoCodes.includes(promoCode.toUpperCase())) {
       setAppliedPromo({
         code: promoCode.toUpperCase(),
@@ -138,111 +147,176 @@ const EnhancedCartPage = () => {
     }
   };
 
-  const handleProceedToCheckout = () => {
-    if (items.length === 0) {
-      dispatch(addNotification({
-        type: 'warning',
-        title: 'Empty Cart',
-        message: 'Please add items to your cart before checkout'
-      }));
-      return;
+  const handleProceedToCheckout = async() => {
+    // if (cartdata.length === 0) {
+    //   dispatch(addNotification({
+    //     type: 'warning',
+    //     title: 'Empty Cart',
+    //     message: 'Please add items to your cart before checkout'
+    //   }));
+    //   return;
+    // }
+              setSpinner(true)
+
+    const res=await verifyuser(dispatch)
+    if(!res.city || !res.full_address || !res.pincode || !res.state){
+      toast.error("Complete Address Before Proceding To Pay", {
+                    position: "top-center",
+                  });
+                  setTimeout(() => {
+                    
+                    navigate("/profile")
+                  }, 2000);
     }
-    
-    console.log('💳 [ENHANCED CART] Proceeding to checkout:', { items, total: finalTotal });
-    navigate('/checkout');
+    else{
+              console.log(counters)
+              console.log(finalTotal)
+              const form={totalprice:finalTotal}
+              const res=await CreateOrder(form)
+              if(res?.data){
+      handlePaymentVerify(finalTotal,res?.data?.id)
+
+              }
+      //         prdata["count"]=quantity
+      // prdata["totalprice"]=quantity*prdata.price
+    }
+    // navigate('/checkout');
+  };
+  const handlePaymentVerify = async (data, orderid) => {
+  const options = {
+    key: RAZORPAY_KEY_ID,
+    amount: data.totalprice,
+    currency: "INR",
+    name: "Dbanyan Moringa",
+    description: "Test Mode",
+    order_id: orderid,
+    handler: async (response) => {
+      console.log("response", response);
+
+      try {
+        let commondata = {
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature
+        };
+
+        // Loop through counters and call VerifyOrderData for each product
+        for (const [id, val] of Object.entries(counters)) {
+          const productData = {
+            ...commondata,
+            id,
+            count: val.count,
+            totalprice: val.price * val.count
+          };
+
+          const res = await VerifyOrderData(productData);
+
+          if (res?.message==="Payement Successfully") {
+            const form={id:id}
+            const res=await RemoveFromCart(form)
+            if(res.message==="Removed From Cart"){
+      // setSpinner(false)
+      dispatch(removecart(id.toString()))
+    }
+            console.log(`✅ Product ${id} verified successfully`, res);
+          } else {
+            console.warn(`⚠️ Product ${id} verification failed`, res);
+          }
+        }
+
+        setSpinner(false);
+        toast.success(`Payment Completed! We Will Contact You Soon`, {
+          position: "top-center"
+        });
+
+        setTimeout(() => {
+          window.location.href = "/profile";
+        }, 1500);
+
+      } catch (err) {
+        setSpinner(false);
+        toast.error("Something went wrong during verification", {
+          position: "top-center"
+        });
+        console.error(err);
+      }
+    },
+    theme: {
+      color: "#5f63b8"
+    }
   };
 
+  const rzp1 = new window.Razorpay(options);
+  rzp1.open();
+  setSpinner(false);
+};
+
+if(spinner){
+  return <CustomLoader />
+}
+  // CartItem component
   const CartItem = ({ item }) => (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
-    >
+    <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
       <Card withBorder p="md" mb="md">
         <Grid align="center">
           <Grid.Col span={2}>
-            <Image
-              src={item.image || '/images/placeholder.jpg'}
-              alt={item.productName}
-              height={80}
-              fit="contain"
-              radius="sm"
-            />
+            <Image src={`${API_URL}/${item?.images?.[0]}` || '/images/placeholder.jpg'} alt={item.name} height={80} fit="contain" radius="sm" />
           </Grid.Col>
-          
+
           <Grid.Col span={4}>
             <Stack gap="xs">
-              <Text fw={600} size="sm" lineClamp={2}>
-                {item.productName}
-              </Text>
+              <Text fw={600} size="sm" lineClamp={2}>{item.name}</Text>
               <Group gap="xs">
                 <Badge color="green" variant="light" size="xs">In Stock</Badge>
                 <Badge color="blue" variant="light" size="xs">Free Delivery</Badge>
               </Group>
               <Group gap="md">
-                <Button 
-                  variant="subtle" 
-                  size="xs" 
-                  leftSection={<IconHeart size={12} />}
-                  onClick={() => handleSaveForLater(item)}
-                >
-                  Save for later
-                </Button>
-                <Button 
-                  variant="subtle" 
-                  size="xs" 
-                  color="red"
-                  leftSection={<IconTrash size={12} />}
-                  onClick={() => handleRemoveItem(item.productId, item.productName)}
-                >
-                  Remove
-                </Button>
+                <Button variant="subtle" size="xs" leftSection={<IconHeart size={12} />} onClick={() => handleSaveForLater(item)}>Save for later</Button>
+                <Button variant="subtle" size="xs" color="red" leftSection={<IconTrash size={12} />} onClick={() => handleRemoveItem(item.id, item.name)}>Remove</Button>
               </Group>
             </Stack>
           </Grid.Col>
-          
+
           <Grid.Col span={3}>
             <Group gap="xs" justify="center">
               <ActionIcon
-                variant="outline"
-                size="sm"
-                onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1, item.productName)}
-                disabled={item.quantity <= 1}
-              >
-                <IconMinus size={14} />
-              </ActionIcon>
-              
-              <NumberInput
-                value={item.quantity}
-                onChange={(val) => handleUpdateQuantity(item.productId, val || 1, item.productName)}
-                min={1}
-                max={10}
-                size="sm"
-                w={60}
-                styles={{ input: { textAlign: 'center' } }}
-              />
-              
-              <ActionIcon
-                variant="outline"
-                size="sm"
-                onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1, item.productName)}
-                disabled={item.quantity >= 10}
-              >
-                <IconPlus size={14} />
-              </ActionIcon>
-            </Group>
+  variant="outline"
+  size="sm"
+  onClick={() =>
+    handleUpdateCounter(item.id, (counters[item.id]?.count || 1) - 1, item.price)
+  }
+  disabled={(counters[item.id]?.count || 1) <= 1}
+>
+  <IconMinus size={14} />
+</ActionIcon>
+
+<NumberInput
+  value={counters[item.id]?.count || 1}
+  onChange={(val) => handleUpdateCounter(item.id, val || 1, item.price)}
+  min={1}
+  max={10}
+  size="sm"
+  w={60}
+  styles={{ input: { textAlign: "center" } }}
+/>
+
+<ActionIcon
+  variant="outline"
+  size="sm"
+  onClick={() =>
+    handleUpdateCounter(item.id, (counters[item.id]?.count || 1) + 1, item.price)
+  }
+  disabled={(counters[item.id]?.count || 1) >= 10}
+>
+  <IconPlus size={14} />
+</ActionIcon>
+</Group>
           </Grid.Col>
-          
+
           <Grid.Col span={3}>
             <Stack gap="xs" align="flex-end">
-              <Text size="lg" fw={700} c="green">
-                ₹{(item.price * item.quantity).toLocaleString()}
-              </Text>
-              <Text size="xs" c="dimmed">
-                ₹{item.price.toLocaleString()} each
-              </Text>
+              <Text size="lg" fw={700} c="green">₹{((item.price || 0) * (counters[item.id]?.count || 1)).toLocaleString()}</Text>
+              <Text size="xs" c="dimmed">₹{item.price?.toLocaleString()} each</Text>
             </Stack>
           </Grid.Col>
         </Grid>
@@ -250,47 +324,25 @@ const EnhancedCartPage = () => {
     </motion.div>
   );
 
+  // SavedItem component
   const SavedItem = ({ item }) => (
     <Card withBorder p="sm" mb="sm">
       <Grid align="center">
         <Grid.Col span={3}>
-          <Image
-            src={item.image || '/images/placeholder.jpg'}
-            alt={item.productName}
-            height={60}
-            fit="contain"
-            radius="sm"
-          />
+          <Image src={`${API_URL}/${item?.images?.[0]}` || '/images/placeholder.jpg'} alt={item.name} height={60} fit="contain" radius="sm" />
         </Grid.Col>
-        
+
         <Grid.Col span={6}>
           <Stack gap="xs">
-            <Text fw={500} size="sm" lineClamp={2}>
-              {item.productName}
-            </Text>
-            <Text size="sm" c="green" fw={600}>
-              ₹{item.price.toLocaleString()}
-            </Text>
+            <Text fw={500} size="sm" lineClamp={2}>{item.name}</Text>
+            <Text size="sm" c="green" fw={600}>₹{item.price.toLocaleString()}</Text>
           </Stack>
         </Grid.Col>
-        
+
         <Grid.Col span={3}>
           <Stack gap="xs">
-            <Button 
-              size="xs" 
-              variant="outline"
-              onClick={() => handleMoveToCart(item)}
-            >
-              Move to Cart
-            </Button>
-            <Button 
-              size="xs" 
-              variant="subtle" 
-              color="red"
-              onClick={() => handleRemoveSaved(item.productId, item.productName)}
-            >
-              Remove
-            </Button>
+            <Button size="xs" variant="outline" onClick={() => handleMoveToCart(item)}>Move to Cart</Button>
+            <Button size="xs" variant="subtle" color="red" onClick={() => handleRemoveSaved(item.id, item.name)}>Remove</Button>
           </Stack>
         </Grid.Col>
       </Grid>
@@ -300,182 +352,89 @@ const EnhancedCartPage = () => {
   return (
     <>
       <Helmet>
-        <title>{`Shopping Cart (${items?.length || 0} items) - Dbanyan Group`}</title>
+        <title>{`Shopping Cart (${cartdata?.length || 0} items) - Dbanyan Group`}</title>
         <meta name="description" content="Review your cart and proceed to checkout" />
       </Helmet>
+              <ToastContainer />
+
 
       <Container size="xl" py="md">
         <ProfessionalBreadcrumbs />
-
         <Grid gutter="xl">
-          {/* Cart Items */}
           <Grid.Col span={8}>
             <Stack gap="lg">
-              {/* Cart Header */}
               <Group justify="space-between">
                 <Title order={2}>Shopping Cart</Title>
-                <Text c="dimmed">
-                  {items.length} {items.length === 1 ? 'item' : 'items'}
-                </Text>
+                <Text c="dimmed">{cartdata.length} {cartdata.length === 1 ? 'item' : 'items'}</Text>
               </Group>
 
-              {/* Cart Items List */}
               <AnimatePresence mode="popLayout">
-                {items.length === 0 ? (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
+                {cartdata.length === 0 ? (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                     <Paper withBorder p="xl" style={{ textAlign: 'center' }}>
                       <Stack align="center" gap="md">
                         <IconShoppingCart size={48} color="gray" />
                         <Title order={3} c="dimmed">Your cart is empty</Title>
                         <Text c="dimmed">Add some products to get started!</Text>
-                        <Button 
-                          leftSection={<IconArrowLeft size={16} />}
-                          onClick={() => navigate('/products')}
-                        >
-                          Continue Shopping
-                        </Button>
+                        <Button leftSection={<IconArrowLeft size={16} />} onClick={() => navigate('/products')}>Continue Shopping</Button>
                       </Stack>
                     </Paper>
                   </motion.div>
                 ) : (
                   <>
-                    {items.map((item, index) => (
-                      <CartItem key={item.productId || item.id || `cart-item-${index}`} item={item} />
-                    ))}
+                    {cartdata.map((item, index) => <CartItem key={item.id || `cart-item-${index}`} item={item} />)}
                   </>
                 )}
               </AnimatePresence>
 
-              {/* Saved for Later Section */}
               {savedItems.length > 0 && (
                 <div>
                   <Divider my="xl" />
                   <Title order={3} mb="md">Saved for Later ({savedItems.length})</Title>
-                  {savedItems.map((item) => (
-                    <SavedItem key={item.productId} item={item} />
-                  ))}
+                  {savedItems.map(item => <SavedItem key={item.id} item={item} />)}
                 </div>
               )}
 
-              {/* Trust Signals */}
               <Paper withBorder p="md" mt="lg">
                 <TrustSignals variant="compact" />
               </Paper>
             </Stack>
           </Grid.Col>
 
-          {/* Order Summary */}
           <Grid.Col span={4}>
             <Card withBorder p="lg" style={{ position: 'sticky', top: '20px' }}>
               <Stack gap="md">
                 <Title order={3}>Order Summary</Title>
-                
                 <Divider />
-
-                {/* Pricing Breakdown */}
                 <Stack gap="xs">
-                  <Group justify="space-between">
-                    <Text>Subtotal ({items.length} items)</Text>
-                    <Text>₹{subtotal.toLocaleString()}</Text>
-                  </Group>
-                  
-                  <Group justify="space-between">
-                    <Text>Delivery Charges</Text>
-                    <Text c={deliveryCharge === 0 ? 'green' : 'dark'}>
-                      {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}
-                    </Text>
-                  </Group>
-                  
-                  <Group justify="space-between">
-                    <Text>Tax</Text>
-                    <Text>₹{tax.toLocaleString()}</Text>
-                  </Group>
-                  
-                  {appliedPromo && (
-                    <Group justify="space-between">
-                      <Text c="green">Discount ({appliedPromo.code})</Text>
-                      <Text c="green">-₹{discount.toLocaleString()}</Text>
-                    </Group>
-                  )}
+                  <Group justify="space-between"><Text>Subtotal ({cartdata.length} items)</Text><Text>₹{subtotal.toLocaleString()}</Text></Group>
+                  {/* <Group justify="space-between"><Text>Delivery Charges</Text><Text c={deliveryCharge === 0 ? 'green' : 'dark'}>{deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}</Text></Group> */}
+                  {/* <Group justify="space-between"><Text>Tax</Text><Text>₹{tax.toLocaleString()}</Text></Group> */}
+                  {/* {appliedPromo && (<Group justify="space-between"><Text c="green">Discount ({appliedPromo.code})</Text><Text c="green">-₹{discount.toLocaleString()}</Text></Group>)} */}
                 </Stack>
-
                 <Divider />
+                <Group justify="space-between"><Text size="lg" fw={700}>Total</Text><Text size="lg" fw={700} c="green">₹{finalTotal.toLocaleString()}</Text></Group>
 
-                {/* Total */}
-                <Group justify="space-between">
-                  <Text size="lg" fw={700}>Total</Text>
-                  <Text size="lg" fw={700} c="green">
-                    ₹{finalTotal.toLocaleString()}
-                  </Text>
-                </Group>
-
-                {/* Promo Code */}
                 <Stack gap="xs">
-                  <Button 
-                    variant="subtle" 
-                    leftSection={<IconTicket size={16} />}
-                    onClick={() => setShowPromoModal(true)}
-                    fullWidth
-                  >
-                    Apply Promo Code
-                  </Button>
-                  
+                  {/* <Button variant="subtle" leftSection={<IconTicket size={16} />} onClick={() => setShowPromoModal(true)} fullWidth>Apply Promo Code</Button> */}
                   {appliedPromo && (
                     <Alert color="green" p="xs">
                       <Group justify="space-between">
                         <Text size="sm">{appliedPromo.description}</Text>
-                        <ActionIcon 
-                          size="sm" 
-                          color="green"
-                          onClick={() => {
-                            setAppliedPromo(null);
-                            setPromoCode('');
-                          }}
-                        >
-                          <IconX size={12} />
-                        </ActionIcon>
+                        <ActionIcon size="sm" color="green" onClick={() => { setAppliedPromo(null); setPromoCode(''); }}><IconX size={12} /></ActionIcon>
                       </Group>
                     </Alert>
                   )}
                 </Stack>
 
-                {/* Checkout Button */}
-                <Button
-                  size="lg"
-                  fullWidth
-                  leftSection={<IconLock size={20} />}
-                  onClick={handleProceedToCheckout}
-                  disabled={items.length === 0}
-                  color="green"
-                >
-                  Proceed to Checkout
-                </Button>
-
-                {/* Continue Shopping */}
-                <Button
-                  variant="outline"
-                  fullWidth
-                  leftSection={<IconArrowLeft size={16} />}
-                  onClick={() => navigate('/products')}
-                >
-                  Continue Shopping
-                </Button>
-
-                {/* Security Badges */}
+                <Button size="lg" fullWidth leftSection={<IconLock size={20} />} onClick={handleProceedToCheckout} disabled={cartdata.length === 0} color="green">Proceed to Checkout</Button>
+                <Button variant="outline" fullWidth leftSection={<IconArrowLeft size={16} />} onClick={() => navigate('/products')}>Continue Shopping</Button>
                 <Divider />
                 <SecurityBadges />
-                
-                {/* Delivery Info */}
                 <Paper bg="green.0" p="sm" radius="sm">
                   <Group gap="xs">
                     <IconTruck size={16} color="green" />
-                    <Text size="sm" c="green" fw={500}>
-                      Free delivery on orders over ₹1000
-                    </Text>
+                    <Text size="sm" c="green" fw={500}>Free delivery on orders over ₹1000</Text>
                   </Group>
                 </Paper>
               </Stack>
@@ -483,13 +442,8 @@ const EnhancedCartPage = () => {
           </Grid.Col>
         </Grid>
 
-        {/* Promo Code Modal */}
-        <Modal 
-          opened={showPromoModal} 
-          onClose={() => setShowPromoModal(false)}
-          title="Apply Promo Code"
-          size="sm"
-        >
+        {/* Promo Modal */}
+        <Modal opened={showPromoModal} onClose={() => setShowPromoModal(false)} title="Apply Promo Code" size="sm">
           <Stack gap="md">
             <Select
               label="Choose a promo code"
@@ -504,19 +458,11 @@ const EnhancedCartPage = () => {
               searchable
               creatable
               getCreateLabel={(query) => `Use code: ${query}`}
-              onCreate={(query) => {
-                setPromoCode(query);
-                return query;
-              }}
+              onCreate={(query) => { setPromoCode(query); return query; }}
             />
-            
             <Group justify="space-between">
-              <Button variant="outline" onClick={() => setShowPromoModal(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleApplyPromo} disabled={!promoCode}>
-                Apply Code
-              </Button>
+              <Button variant="outline" onClick={() => setShowPromoModal(false)}>Cancel</Button>
+              <Button onClick={handleApplyPromo} disabled={!promoCode}>Apply Code</Button>
             </Group>
           </Stack>
         </Modal>

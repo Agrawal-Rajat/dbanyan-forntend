@@ -35,8 +35,12 @@ import {
   Tooltip,
   Checkbox,
   Center,
-  Divider
+  Divider,
 } from '@mantine/core';
+import "react-toastify/dist/ReactToastify.css";
+import { toast, ToastContainer } from "react-toastify";
+import BackendPagination from '../../Pagination/BackendPagination';
+import GetAllProductData from '../../API_FILES/product_apis/GetAllProductData';
 import {
   IconPlus,
   IconEdit,
@@ -69,11 +73,18 @@ import { motion } from 'framer-motion';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchProducts, createProduct, updateProduct, deleteProduct } from '../../store/slices/productsSlice';
 import { productService } from '../../services/productService';
-
+import CreateProduct from '../../API_FILES/product_apis/CreateProduct';
+import CustomLoader from '../../Loader/CustomLoader';
+import { API_URL } from '../../NwConfig';
+import DeleteProduct from '../../API_FILES/product_apis/DeleteProduct';
+import GetCategoryData from '../../API_FILES/category/GetCategoryData';
+import EditProduct from '../../API_FILES/product_apis/EditProduct';
 const ProductManagement = () => {
   const dispatch = useDispatch();
-  const { products, loading, error } = useSelector((state) => state.products);
-  
+  const [prid,setprid]=useState(0)
+
+  // const { products, loading, error } = useSelector((state) => state.products);
+  const [loading,setloading]=useState(false)
   // Modal and form states
   const [productModalOpened, { open: openProductModal, close: closeProductModal }] = useDisclosure(false);
   const [bulkModalOpened, { open: openBulkModal, close: closeBulkModal }] = useDisclosure(false);
@@ -87,14 +98,51 @@ const ProductManagement = () => {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
-  const [currentPage, setCurrentPage] = useState(1);
+  // const [currentPage, setCurrentPage] = useState(1);
   const [productToDelete, setProductToDelete] = useState(null);
   const itemsPerPage = 10;
+  const [images, setImages] = useState([{ id: Date.now(), file: null }]);
+  
+  const handleAddImage = () => {
+    setImages([...images, { id: Date.now(), file: null }]);
+  };
+  
 
+  const handleFileChange = (id, file) => {
+    setImages((prev) =>
+      prev.map((img) => (img.id === id ? { ...img, file } : img))
+    );
+  };
+
+  const handleRemove = (id) => {
+    setImages((prev) => prev.filter((img) => img.id !== id));
+  };
   // Load products on component mount
+  const [productdata,setproductdata]=useState([])
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [productCategories,setproductCategories]=useState([])
+  const fetchAllProducts=async(page)=>{
+    setloading(true)
+    const res=await GetAllProductData(page,6)
+    // console.log(res)
+    if(res?.data){
+      setproductdata(res?.data)
+      setTotalPages(res?.pagination?.totalPages || 1);
+      setloading(false)
+    }
+  }
+  const getallcategorydata=async()=>{
+    const res=await GetCategoryData()
+    // console.log(res)
+    if(res?.data){
+      setproductCategories(res?.data)
+    }
+  }
   useEffect(() => {
-    dispatch(fetchProducts());
-  }, [dispatch]);
+    fetchAllProducts(currentPage)
+    getallcategorydata()
+  }, [currentPage]);
 
   // Professional product form with comprehensive Amazon-style fields
   const productForm = useForm({
@@ -121,7 +169,7 @@ const ProductManagement = () => {
       images: [],
       // Shipping information
       weight: 0,
-      dimensions: { length: 0, width: 0, height: 0 },
+      dimensions: "10cm X 12cm X 13cm",
       shipping_class: 'standard',
       free_shipping: false,
       shipping_cost: 0,
@@ -155,38 +203,38 @@ const ProductManagement = () => {
   });
 
   // Enhanced product categories with subcategories
-  const productCategories = [
-    { 
-      value: 'powder', 
-      label: 'Moringa Powder',
-      subcategories: ['Pure Powder', 'Flavored Powder', 'Capsules', 'Bulk Powder']
-    },
-    { 
-      value: 'paste', 
-      label: 'Moringa Paste',
-      subcategories: ['Pure Paste', 'Seasoned Paste', 'Cooking Paste']
-    },
-    { 
-      value: 'fresh', 
-      label: 'Fresh Produce',
-      subcategories: ['Fresh Leaves', 'Fresh Pods', 'Fresh Seeds', 'Fresh Flowers']
-    },
-    { 
-      value: 'processed', 
-      label: 'Processed Products',
-      subcategories: ['Dried Leaves', 'Seed Oil', 'Protein Powder', 'Tea Blends']
-    },
-    { 
-      value: 'supplements', 
-      label: 'Supplements',
-      subcategories: ['Tablets', 'Capsules', 'Liquid Extracts', 'Gummies']
-    },
-    { 
-      value: 'cosmetics', 
-      label: 'Cosmetic Products',
-      subcategories: ['Face Cream', 'Body Lotion', 'Hair Oil', 'Soap']
-    }
-  ];
+  // const productCategories = [
+  //   { 
+  //     value: 'Moringa Powder', 
+  //     label: 'Moringa Powder',
+  //     subcategories: ['Pure Powder', 'Flavored Powder', 'Capsules', 'Bulk Powder']
+  //   },
+  //   { 
+  //     value: 'Moringa Paste', 
+  //     label: 'Moringa Paste',
+  //     subcategories: ['Pure Paste', 'Seasoned Paste', 'Cooking Paste']
+  //   },
+  //   { 
+  //     value: 'Fresh Produce', 
+  //     label: 'Fresh Produce',
+  //     subcategories: ['Fresh Leaves', 'Fresh Pods', 'Fresh Seeds', 'Fresh Flowers']
+  //   },
+  //   { 
+  //     value: 'Processed Products', 
+  //     label: 'Processed Products',
+  //     subcategories: ['Dried Leaves', 'Seed Oil', 'Protein Powder', 'Tea Blends']
+  //   },
+  //   { 
+  //     value: 'Supplements', 
+  //     label: 'Supplements',
+  //     subcategories: ['Tablets', 'Capsules', 'Liquid Extracts', 'Gummies']
+  //   },
+  //   { 
+  //     value: 'Cosmetic Products', 
+  //     label: 'Cosmetic Products',
+  //     subcategories: ['Face Cream', 'Body Lotion', 'Hair Oil', 'Soap']
+  //   }
+  // ];
 
   // Enhanced status options with Amazon-style workflow
   const statusOptions = [
@@ -220,7 +268,7 @@ const ProductManagement = () => {
 
   // Filter and search logic
   const getFilteredProducts = () => {
-    let filtered = [...products];
+    let filtered = [...productdata];
 
     // Search filter
     if (searchTerm) {
@@ -260,9 +308,10 @@ const ProductManagement = () => {
 
     return filtered;
   };
+  // const [loadings,setloading]=useState(false)
 
   const filteredProducts = getFilteredProducts();
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  // const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const paginatedProducts = filteredProducts.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -282,21 +331,103 @@ const ProductManagement = () => {
       };
 
       if (editingProduct) {
-        await dispatch(updateProduct({ id: editingProduct.id, productData })).unwrap();
-        notifications.show({
-          title: 'Success',
-          message: 'Product updated successfully',
-          color: 'green',
-          icon: <IconCheck size={16} />
-        });
+      //  console.log("editing data",productData)
+      //  console.log(images)
+      setloading(true)
+      const files=images.filter(item=> typeof item.file=="object")
+      const links=images.filter(item=> typeof item.file=="string")
+      // console.log(files)
+      // console.log(links)
+      const data=new FormData()
+    data.append("benefits",productData.benefits)
+    data.append("brand",productData.brand)
+    data.append("category",productData.category)
+    data.append("compare_at_price",productData.compare_at_price)
+    data.append("tags",JSON.stringify(productData.tags))
+    data.append("links",JSON.stringify(links))
+    data.append("cost_price",productData.cost_price)
+    data.append("description",productData.description)
+    data.append("dimensions",productData.dimensions)
+    data.append("featured",productData.featured)
+    data.append("low_stock_threeshold",productData.low_stock_threshold)
+    data.append("meta_description",productData.meta_description)
+    data.append("meta_title",productData.meta_title)
+    data.append("name",productData.name)
+    data.append("price",productData.price)
+    data.append("quantity",productData.quantity)
+    data.append("sku",productData.sku)
+    data.append("short_description",productData.short_description)
+    data.append("status",productData.status)
+    data.append("weight",productData.weight)
+    data.append("ingredients",productData.ingredients)
+    data.append("usage_instructions",productData.usage_instructions)
+    data.append("id",prid)
+    files.forEach((imgObj) => {
+  data.append('images', imgObj.file);
+});
+  const res=await EditProduct(data)
+  // console.log(res)
+  if(res?.message==="Product Updated"){
+    setloading(false)
+    toast.success(res?.message,{
+      position:"top-center"
+    })
+  }
+  setTimeout(() => {
+    window.location.reload()
+  }, 1000);
       } else {
-        await dispatch(createProduct(productData)).unwrap();
-        notifications.show({
-          title: 'Success',
-          message: 'Product created successfully',
-          color: 'green',
-          icon: <IconCheck size={16} />
-        });
+        // await dispatch(createProduct(productData)).unwrap();
+        // notifications.show({
+        //   title: 'Success',
+        //   message: 'Product created successfully',
+        //   color: 'green',
+        //   icon: <IconCheck size={16} />
+        // });
+        // console.log(productData)
+        // console.log(images)
+        setloading(true)
+        const data=new FormData()
+    data.append("benefits",productData.benefits)
+    data.append("brand",productData.brand)
+    data.append("category",productData.category)
+    data.append("compare_at_price",productData.compare_at_price)
+    data.append("tags",JSON.stringify(productData.tags))
+    data.append("cost_price",productData.cost_price)
+    data.append("description",productData.description)
+    data.append("dimensions",productData.dimensions)
+    data.append("featured",productData.featured)
+    data.append("low_stock_threeshold",productData.low_stock_threshold)
+    data.append("meta_description",productData.meta_description)
+    data.append("meta_title",productData.meta_title)
+    data.append("name",productData.name)
+    data.append("price",productData.price)
+    data.append("quantity",productData.quantity)
+    data.append("sku",productData.sku)
+    data.append("short_description",productData.short_description)
+    data.append("status",productData.status)
+    data.append("weight",productData.weight)
+    data.append("ingredients",productData.ingredients)
+    data.append("usage_instructions",productData.usage_instructions)
+    images.forEach((imgObj) => {
+  data.append('images', imgObj.file);
+});
+
+const res=await CreateProduct(data)
+if (res.message==="Product Created"){
+  setloading(false)
+  toast.success("Product Addedd SuccessFull", {
+                    position: "top-center",
+                  });
+  setTimeout(() => {
+    window.location.reload()
+  }, 1000);
+}
+else{
+  toast.error("Product Not Addedd Try Again Later", {
+                    position: "top-center",
+                  });
+}
       }
 
       closeProductModal();
@@ -317,24 +448,29 @@ const ProductManagement = () => {
   const handleDeleteProduct = async () => {
     if (!productToDelete) return;
 
-    try {
-      await dispatch(deleteProduct(productToDelete.id)).unwrap();
-      notifications.show({
-        title: 'Success',
-        message: 'Product deleted successfully',
-        color: 'green',
-        icon: <IconCheck size={16} />
-      });
-      closeDeleteModal();
-      setProductToDelete(null);
-    } catch (error) {
-      console.error('Product deletion failed:', error);
-      notifications.show({
-        title: 'Error',
-        message: error.message || 'Failed to delete product',
-        color: 'red',
-        icon: <IconX size={16} />
-      });
+    else{
+      // console.log(productToDelete)
+      setloading(true)
+      const res=await DeleteProduct(productToDelete.id)
+      // console.log(res)
+      if(res?.message==="Product Deleted"){
+        toast.success(res?.message,{
+          position: "top-center",
+        })
+        setloading(false)
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000);
+      }
+      else{
+        toast.error("Product Not Delted Try Again Later",{
+          position: "top-center",
+        })
+        setloading(false)
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000);
+      }
     }
   };
 
@@ -373,6 +509,17 @@ const ProductManagement = () => {
   // Open edit modal
   const openEditModal = (product) => {
     setEditingProduct(product);
+    // console.log(product.id)
+    setprid(product.id)
+    if (product?.images?.length) {
+    const mapped = product.images.map((item, idx) => ({
+      id: Date.now() + idx, // unique id
+      file: item,           // image path/string from product.images
+    }));
+    setImages(mapped);
+  }
+    // console.log("edit modal open")
+    // console.log(product.images)
     productForm.setValues({
       name: product.name || '',
       description: product.description || '',
@@ -395,7 +542,7 @@ const ProductManagement = () => {
       usage_instructions: product.usage_instructions || '',
       meta_title: product.meta_title || '',
       meta_description: product.meta_description || '',
-      tags: product.tags || []
+      tags: product.tags || [],
     });
     openProductModal();
   };
@@ -414,29 +561,34 @@ const ProductManagement = () => {
 
   // Calculate inventory statistics
   const inventoryStats = {
-    total: products.length,
-    active: products.filter(p => p.status === 'active').length,
-    lowStock: products.filter(p => p.quantity < (p.low_stock_threshold || 5)).length,
-    outOfStock: products.filter(p => p.quantity === 0).length
+    total: productdata.length,
+    active: productdata.filter(p => p.status === 'active').length,
+    lowStock: productdata.filter(p => p.quantity < (p.low_stock_threshold || 5)).length,
+    outOfStock: productdata.filter(p => p.quantity === 0).length
   };
 
   return (
     <Box>
       {/* Page Header with Actions */}
       <Group justify="space-between" mb="xl">
-        <div>
+        <ToastContainer />
+        
+        {
+          loading && <CustomLoader/>
+        }
+        <div className='text-center'>
           <Title order={2} mb="xs">Product Management</Title>
           <Text c="dimmed">Manage your product catalog, inventory, and pricing</Text>
         </div>
         
         <Group>
-          <Button
+          {/* <Button
             leftSection={<IconUpload size={16} />}
             variant="light"
             onClick={openBulkModal}
           >
             Bulk Import
-          </Button>
+          </Button> */}
           <Button
             leftSection={<IconPlus size={16} />}
             onClick={() => {
@@ -520,9 +672,10 @@ const ProductManagement = () => {
           <Grid.Col span={{ base: 12, sm: 2 }}>
             <Select
               data={[
-                { value: 'all', label: 'All Categories' },
+                { name: 'all', value: 'All Categories' },
                 ...productCategories
               ]}
+
               value={categoryFilter}
               onChange={setCategoryFilter}
               leftSection={<IconTags size={16} />}
@@ -557,7 +710,7 @@ const ProductManagement = () => {
               >
                 <IconArrowDown size={16} />
               </ActionIcon>
-              <ActionIcon variant="light" onClick={() => dispatch(fetchProducts())}>
+              <ActionIcon variant="light" onClick={()=>fetchAllProducts()}>
                 <IconRefresh size={16} />
               </ActionIcon>
             </Group>
@@ -589,13 +742,9 @@ const ProductManagement = () => {
       <Card shadow="sm" p="lg" radius="md" withBorder>
         {loading ? (
           <Center py="xl">
-            <Loader size="lg" />
+            <CustomLoader size="lg" />
           </Center>
-        ) : error ? (
-          <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-            {error}
-          </Alert>
-        ) : paginatedProducts.length === 0 ? (
+        )  : productdata.length === 0 ? (
           <Center py="xl">
             <Stack align="center">
               <IconPackage size={48} color="gray" />
@@ -641,7 +790,7 @@ const ProductManagement = () => {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {paginatedProducts.map((product, index) => (
+                {filteredProducts.map((product, index) => (
                   <motion.tr
                     key={product.id}
                     initial={{ opacity: 0, y: 20 }}
@@ -663,7 +812,7 @@ const ProductManagement = () => {
                     <Table.Td>
                       <Group gap="sm">
                         <Avatar
-                          src={product.images?.[0]}
+                          src={`${API_URL}/${product?.images[0]}`}
                           alt={product.name}
                           size="sm"
                           radius="md"
@@ -687,7 +836,7 @@ const ProductManagement = () => {
                     </Table.Td>
                     <Table.Td>
                       <Badge variant="light" size="sm">
-                        {productCategories.find(cat => cat.value === product.category)?.label || product.category}
+                        {productCategories.find(cat => cat.name === product.category)?.value || product.category}
                       </Badge>
                     </Table.Td>
                     <Table.Td>
@@ -761,10 +910,18 @@ const ProductManagement = () => {
                   </motion.tr>
                 ))}
               </Table.Tbody>
+                    
             </Table>
+            <div className='flex  justify-center w-full'>
+                <BackendPagination
+                                                      currentPage={currentPage}
+                                                      totalPages={totalPages}
+                                                      onPageChange={(newPage) => setCurrentPage(newPage)}
+                                                    />
+                                                    </div>
 
             {/* Pagination */}
-            {totalPages > 1 && (
+            {/* {totalPages > 1 && (
               <Group justify="center" mt="xl">
                 <Pagination
                   value={currentPage}
@@ -773,7 +930,7 @@ const ProductManagement = () => {
                   size="sm"
                 />
               </Group>
-            )}
+            )} */}
           </>
         )}
       </Card>
@@ -781,8 +938,8 @@ const ProductManagement = () => {
       {/* Product Modal */}
       <Modal
         opened={productModalOpened}
-        onClose={closeProductModal}
-        title={editingProduct ? 'Edit Product' : 'Add New Product'}
+        onClose={()=>{closeProductModal(); setImages([{ id: Date.now(), file: null }])}}
+        title={editingProduct ? 'Edit Product -->Make Sure to Complete Details In Each Tag  Before Clicking Submit' : 'Add New Product -->Make Sure to Complete Details In Each Tag  Before Clicking Submit'}
         size="xl"
         scrollAreaComponent={Modal.NativeScrollArea}
       >
@@ -793,6 +950,7 @@ const ProductManagement = () => {
               <Tabs.Tab value="pricing">Pricing & Inventory</Tabs.Tab>
               <Tabs.Tab value="details">Product Details</Tabs.Tab>
               <Tabs.Tab value="seo">SEO & Marketing</Tabs.Tab>
+              <Tabs.Tab value="images">Images</Tabs.Tab>
             </Tabs.List>
 
             <Tabs.Panel value="basic" pt="md">
@@ -968,10 +1126,74 @@ const ProductManagement = () => {
                 />
               </Stack>
             </Tabs.Panel>
+            <Tabs.Panel value="images" pt="md">
+      <h1 className='text-center mb-5'>Use The below + button to add new image</h1>
+
+      <Stack>
+        
+
+        {/* Image Inputs */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  
+  {images.map((img, index) => (
+    <div
+      key={img.id}
+      className="relative w-full aspect-square rounded-xl overflow-hidden shadow-md border bg-white group"
+    >
+      {/* Image or Upload */}
+      {typeof img.file === "string" ? (
+        <Image
+          src={`${API_URL}/${img.file}`}
+          alt={`Image ${index + 1}`}
+          className="w-full h-full object-cover"
+        />
+      ) : img.file instanceof File ? (
+        <Image
+          src={URL.createObjectURL(img.file)}
+          alt={`Preview ${index + 1}`}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div className="flex items-center justify-center h-full w-full text-gray-400 text-sm">
+          <FileInput
+            placeholder={`Upload image ${index + 1}`}
+            accept="image/*"
+            onChange={(file) => handleFileChange(img.id, file)}
+          />
+        </div>
+      )}
+
+      {/* Delete Button (shows on hover) */}
+      <button
+        onClick={() => handleRemove(img.id)}
+        className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition"
+      >
+        <IconTrash size={16} />
+      </button>
+    </div>
+  ))}
+
+  {/* Add New Image Card */}
+  <button
+    onClick={handleAddImage}
+    className="flex items-center justify-center aspect-square w-full rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-500 hover:text-blue-500 text-gray-400 text-3xl transition"
+  >
+    <IconPlus size={28} />
+  </button>
+</div>
+
+
+        {/* Add New Image Button */}
+        <ActionIcon variant="light" color="blue" onClick={handleAddImage}>
+          <IconPlus size={20} />
+        </ActionIcon>
+      </Stack>
+    </Tabs.Panel>
+     
           </Tabs>
 
           <Group justify="flex-end" mt="xl">
-            <Button variant="light" onClick={closeProductModal}>
+            <Button variant="light" onClick={()=>{closeProductModal(); setImages([{ id: Date.now(), file: null }])}}>
               Cancel
             </Button>
             <Button type="submit" loading={loading}>

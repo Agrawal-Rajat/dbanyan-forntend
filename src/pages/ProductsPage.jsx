@@ -3,6 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
+import verifyuser from '../API_FILES/Verify';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
   Container, 
@@ -12,8 +13,7 @@ import {
   SimpleGrid,
   Stack,
   Group,
-  Center,
-  Loader
+  Center
 } from '@mantine/core';
 import { IconGitCompare } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
@@ -23,19 +23,46 @@ import ProfessionalFilterSidebar from '../components/ui/ProfessionalFilterSideba
 import ProductListingControls from '../components/ui/ProductListingControls';
 import ProfessionalProductCard from '../components/ui/ProfessionalProductCard';
 import ProductComparisonModal from '../components/ui/ProductComparisonModal';
-import { fetchProducts } from '../store/slices/productsSlice';
 import { addToCart } from '../store/slices/cartSlice';
 import { addNotification } from '../store/slices/notificationSlice';
-
+import GetAllProductData from '../API_FILES/product_apis/GetAllProductData';
+import CustomLoader from '../Loader/CustomLoader';
+import BackendPagination from '../Pagination/BackendPagination';
+import "react-toastify/dist/ReactToastify.css";
+import { toast, ToastContainer } from "react-toastify";
+import AddToCart from '../API_FILES/product_apis/AddToCart';
+import AddToWishlist from '../API_FILES/product_apis/AddToWishlist';
+import { addcart, addwishlist } from '../store/slices/WishlistAndCartSlice';
 const ProductsPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+const cart = useSelector(state => state.wishlistandcart.cart);
+const wishlistRedux = useSelector(state => state.wishlistandcart.wishlist);
 
-  // Get Redux state
-  const { products, isLoading, error } = useSelector(state => state.products);
+  const [productList, setProducts] = useState([]);
+  const [spinner, setSpinner] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Fetch products from API
+  useEffect(() => {
+    getProducts(currentPage);
+  }, [currentPage]);
+
+  const getProducts = async (page) => {
+    setSpinner(true);
+    const res = await GetAllProductData(page, 6);
+    if (res?.data?.length >= 1) {
+      setProducts(res.data);
+      setTotalPages(res?.pagination?.totalPages || 1);
+    }
+    setSpinner(false);
+  };
+
+  // Get Redux state (cart only, no products needed)
   const { items: cartItems } = useSelector(state => state.cart);
 
-  // Enhanced state for filtering and sorting
+  // Filters and sorting
   const [appliedFilters, setAppliedFilters] = useState({
     priceRange: [0, 2000],
     categories: [],
@@ -48,116 +75,34 @@ const ProductsPage = () => {
   const [viewMode, setViewMode] = useState('grid');
   const [showFilterSidebar, setShowFilterSidebar] = useState(true);
   const [wishlist, setWishlist] = useState(new Set());
-  
-  // Product comparison state
+
+  // Product comparison
   const [comparisonProducts, setComparisonProducts] = useState([]);
   const [showComparisonModal, setShowComparisonModal] = useState(false);
 
-  // Fetch products on component mount
-  useEffect(() => {
-    console.log('🚀 [PRODUCTS PAGE] Component mounted, fetching all products...');
-    dispatch(fetchProducts({ skip: 0, limit: 100 }));
-  }, [dispatch]);
-
-  // Console log when products state changes
-  useEffect(() => {
-    console.log('�️ [PRODUCTS PAGE] Component state:', { 
-      productsCount: products.length, 
-      isLoading, 
-      error: error || 'none',
-      cartItemsCount: cartItems.length 
-    });
-    console.log('�📦 [PRODUCTS PAGE] Products state updated:', {
-      productsCount: products.length,
-      isLoading,
-      error: error || 'none',
-      products: products.map(p => ({ 
-        product_id: p.product_id, 
-        name: p.name, 
-        category: p.category,
-        price: p.price,
-        inStock: p.stock_quantity > 0
-      }))
-    });
-  }, [products, isLoading, error, cartItems.length]);
-
-  // Handle add to cart
-  const handleAddToCart = (product, quantity = 1) => {
-    console.log('🛒 [PRODUCTS PAGE] Adding product to cart:', {
-      productId: product.product_id,
-      productName: product.name,
-      quantity,
-      price: product.price
-    });
-
-    dispatch(addToCart({
-      productId: product.product_id,
-      productName: product.name,
-      price: product.price,
-      quantity: quantity,
-      image: product.images?.[0] || '/images/placeholder.jpg'
-    }));
-
-    // Add success notification
-    dispatch(addNotification({
-      type: 'success',
-      title: 'Added to Cart',
-      message: `${product.name} has been added to your cart`
-    }));
-
-    console.log('✅ [PRODUCTS PAGE] Product added to cart successfully');
-  };
-
-  // Store and restore filter state in localStorage
+  // Save filters to localStorage
   useEffect(() => {
     const savedFilters = localStorage.getItem('products_filters');
     if (savedFilters) {
       try {
         const filters = JSON.parse(savedFilters);
-        setAppliedFilters(filters.appliedFilters || {
-          priceRange: [0, 2000],
-          categories: [],
-          ratings: [],
-          benefits: [],
-          availability: []
-        });
+        setAppliedFilters(filters.appliedFilters || appliedFilters);
         setSortBy(filters.sortBy || 'featured');
         setViewMode(filters.viewMode || 'grid');
       } catch (error) {
-        console.warn('⚠️ [PRODUCTS PAGE] Failed to restore filters from localStorage:', error);
+        console.warn('⚠️ Failed to restore filters from localStorage:', error);
       }
     }
   }, []);
 
   useEffect(() => {
-    const filters = {
-      appliedFilters,
-      sortBy,
-      viewMode
-    };
+    const filters = { appliedFilters, sortBy, viewMode };
     localStorage.setItem('products_filters', JSON.stringify(filters));
   }, [appliedFilters, sortBy, viewMode]);
-  // Handler functions for the new components
-  const handleFiltersChange = (newFilters) => {
-    setAppliedFilters(newFilters);
-  };
 
-  const handleSortChange = (newSortBy, newSortOrder) => {
-    setSortBy(newSortBy);
-    setSortOrder(newSortOrder);
-  };
-
-  const handleViewChange = (newView) => {
-    setViewMode(newView);
-  };
-
-  const handleToggleFilters = () => {
-    setShowFilterSidebar(!showFilterSidebar);
-  };
-
-  // Enhanced filter and sort products
+  // Filtering + Sorting applied on productList (NOT Redux)
   const filteredAndSortedProducts = useMemo(() => {
-    let filtered = products;
+    let filtered = [...productList];
 
     // Category filter
     if (appliedFilters.categories?.length > 0) {
@@ -166,7 +111,7 @@ const ProductsPage = () => {
       );
     }
 
-    // Price range filter
+    // Price range
     if (appliedFilters.priceRange) {
       filtered = filtered.filter(product => 
         product.price >= appliedFilters.priceRange[0] && 
@@ -174,7 +119,7 @@ const ProductsPage = () => {
       );
     }
 
-    // Rating filter (mock rating based on stock and featured status)
+    // Ratings (mocked from is_featured + stock_quantity)
     if (appliedFilters.ratings?.length > 0) {
       filtered = filtered.filter(product => {
         const mockRating = product.is_featured ? 5 : (product.stock_quantity > 10 ? 4 : 3);
@@ -182,7 +127,7 @@ const ProductsPage = () => {
       });
     }
 
-    // Benefits filter
+    // Benefits
     if (appliedFilters.benefits?.length > 0) {
       filtered = filtered.filter(product =>
         appliedFilters.benefits.some(benefit => 
@@ -192,7 +137,7 @@ const ProductsPage = () => {
       );
     }
 
-    // Availability filter
+    // Availability
     if (appliedFilters.availability?.length > 0) {
       filtered = filtered.filter(product => {
         return appliedFilters.availability.some(option => {
@@ -213,65 +158,119 @@ const ProductsPage = () => {
     // Sorting
     filtered.sort((a, b) => {
       let comparison = 0;
-      
       switch (sortBy) {
-        case 'price_low':
-          comparison = a.price - b.price;
-          break;
-        case 'price_high':
-          comparison = b.price - a.price;
-          break;
-        case 'name':
-          comparison = a.name.localeCompare(b.name);
-          break;
-        case 'name_desc':
-          comparison = b.name.localeCompare(a.name);
-          break;
+        case 'price_low': comparison = a.price - b.price; break;
+        case 'price_high': comparison = b.price - a.price; break;
+        case 'name': comparison = a.name.localeCompare(b.name); break;
+        case 'name_desc': comparison = b.name.localeCompare(a.name); break;
         case 'rating': {
           const ratingA = a.is_featured ? 5 : (a.stock_quantity > 10 ? 4 : 3);
           const ratingB = b.is_featured ? 5 : (b.stock_quantity > 10 ? 4 : 3);
           comparison = ratingB - ratingA;
           break;
         }
-        case 'newest':
-          comparison = new Date(b.created_at || 0) - new Date(a.created_at || 0);
-          break;
-        case 'popularity':
-          comparison = (b.stock_quantity || 0) - (a.stock_quantity || 0);
-          break;
+        case 'newest': comparison = new Date(b.created_at || 0) - new Date(a.created_at || 0); break;
+        case 'popularity': comparison = (b.stock_quantity || 0) - (a.stock_quantity || 0); break;
         case 'featured':
         default:
-          // Featured products first, then by name
           if (a.is_featured && !b.is_featured) comparison = -1;
           else if (!a.is_featured && b.is_featured) comparison = 1;
           else comparison = a.name.localeCompare(b.name);
           break;
       }
-      
       return sortOrder === 'desc' ? -comparison : comparison;
     });
 
     return filtered;
-  }, [products, appliedFilters, sortBy, sortOrder]);
+  }, [productList, appliedFilters, sortBy, sortOrder]);
 
-  const handleViewDetails = (productId) => {
-    console.log('👁️ [PRODUCTS PAGE] Navigating to product details:', { productId });
-    navigate(`/products/${productId}`);
+  // Cart handler
+  const handleAddToCart = async(product, quantity = 1) => {
+    const expiry = localStorage.getItem("tehunyzu@37673");
+        if(!expiry){
+          toast.error("Signup or Login First", {
+                        position: "top-center",
+                      });
+                      setTimeout(() => {
+                        
+                        navigate("/signup")
+                      }, 1000);
+    
+        }
+        else{
+          setSpinner(true)
+          const form={
+            id:product
+          }
+          
+          const res=await AddToCart(form)
+          // console.log(res)
+          // console.log(res)
+          if(res.message==="Added To Cart"){
+            setSpinner(false)
+            toast.success(res.message, {
+                          position: "top-center",
+                        });
+                        setTimeout(() => {
+                          dispatch(addcart(product))
+                          navigate("/cart")
+                        }, 1000);
+          }
+          else{
+            setSpinner(false)
+            toast.error("Not Added To Cart Try Again later", {
+                          position: "top-center",
+                        });
+          }
+    
+          console.log("add to cart",product,quantity)
+        }
   };
 
-  const toggleWishlist = (productUid) => {
-    setWishlist(prev => {
-      const newWishlist = new Set(prev);
-      if (newWishlist.has(productUid)) {
-        newWishlist.delete(productUid);
-      } else {
-        newWishlist.add(productUid);
-      }
-      return newWishlist;
-    });
+  // Other helpers
+  const handleViewDetails = (productId) =>       window.location.href=`/products/${productId}`
+;
+  const toggleWishlist = async(productId) => {
+    // alert(productId)
+    const expiry = localStorage.getItem("tehunyzu@37673");
+    if(!expiry){
+      toast.error("Signup or Login First", {
+                    position: "top-center",
+                  });
+                  setTimeout(() => {
+                    
+                    navigate("/signup")
+                  }, 1000);
+
+    }
+    else{
+    setSpinner(true)
+       const form={
+            id:productId
+          }
+          const res=await AddToWishlist(form)
+          // console.log(res)
+          if(res.message==="Added To Wishlist"){
+            setSpinner(false)
+            toast.success(res.message, {
+                          position: "top-center",
+                        });
+                        setTimeout(() => {
+                          dispatch(addwishlist(productId))
+                          navigate("/wishlist")
+                        }, 1000);
+          }
+          else{
+            setSpinner(false)
+            toast.error("Not Added To Wishlist Try Again later", {
+                          position: "top-center",
+                        });
+          }
+      // console.log("wishlist product add",productId)
+    }
   };
 
-  // Handle product comparison
+  // Comparison
   const handleAddToComparison = (product) => {
     if (comparisonProducts.length >= 3) {
       dispatch(addNotification({
@@ -281,22 +280,8 @@ const ProductsPage = () => {
       }));
       return;
     }
-    
-    if (comparisonProducts.find(p => p.product_id === product.product_id)) {
-      dispatch(addNotification({
-        type: 'info',
-        title: 'Already Added',
-        message: 'This product is already in comparison'
-      }));
-      return;
-    }
-    
+    if (comparisonProducts.find(p => p.product_id === product.product_id)) return;
     setComparisonProducts(prev => [...prev, product]);
-    dispatch(addNotification({
-      type: 'success',
-      title: 'Added to Comparison',
-      message: `${product.name} added to comparison`
-    }));
   };
 
   const handleRemoveFromComparison = (productId) => {
@@ -315,77 +300,19 @@ const ProductsPage = () => {
     setShowComparisonModal(true);
   };
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <>
-        <Helmet>
-          <title>Products - Dbanyan Group</title>
-          <meta name="description" content="Explore our premium moringa products" />
-        </Helmet>
-        <div style={{ minHeight: '100vh', backgroundColor: '#f8f9fa', paddingTop: '2rem' }}>
-          <Container size="xl">
-            <Center style={{ paddingTop: '3rem' }}>
-              <Stack align="center" gap="md">
-                <Loader size="lg" color="green" />
-                <Text style={{ fontFamily: '"Inter", sans-serif' }}>
-                  Loading our premium products...
-                </Text>
-              </Stack>
-            </Center>
-          </Container>
-        </div>
-      </>
-    );
-  }
+  // Loading
+  if (spinner) return <CustomLoader />;
 
-  // Error state
-  if (error) {
+  // No products
+  if (!productList || productList.length === 0) {
     return (
-      <>
-        <Helmet>
-          <title>Products - Dbanyan Group</title>
-        </Helmet>
-        <div style={{ minHeight: '100vh', backgroundColor: '#fafafa', paddingTop: '2rem' }}>
-          <Container size="xl">
-            <Center style={{ paddingTop: '3rem' }}>
-              <Stack align="center" gap="md">
-                <Text size="lg" c="red">Error Loading Products</Text>
-                <Text size="sm" c="dimmed">
-                  Unable to load products. Please try again later.
-                </Text>
-                {error && <Text size="xs" c="dimmed">{error.message}</Text>}
-              </Stack>
-            </Center>
-          </Container>
-        </div>
-      </>
-    );
-  }
-
-  // No products state
-  if (!products || products.length === 0) {
-    return (
-      <>
-        <Helmet>
-          <title>Products - Dbanyan Group</title>
-          <meta name="description" content="Explore our premium moringa products" />
-        </Helmet>
-        <div style={{ minHeight: '100vh', backgroundColor: '#f8f9fa', paddingTop: '2rem' }}>
-          <Container size="xl">
-            <Center style={{ paddingTop: '3rem' }}>
-              <Stack align="center" gap="md">
-                <Text size="lg" style={{ fontFamily: '"Inter", sans-serif' }}>
-                  No products available at the moment.
-                </Text>
-                <Text size="sm" c="dimmed">
-                  Please check back later for our latest products.
-                </Text>
-              </Stack>
-            </Center>
-          </Container>
-        </div>
-      </>
+      <Container size="xl">
+        <Center py="xl">
+          <Stack align="center">
+            <Text size="lg">No products available</Text>
+          </Stack>
+        </Center>
+      </Container>
     );
   }
 
@@ -394,104 +321,88 @@ const ProductsPage = () => {
       <Helmet>
         <title>Products - Dbanyan Group | Premium Moringa Products</title>
         <meta name="description" content="Explore our premium moringa products - organic, fresh, and nutrient-rich" />
-        <meta name="keywords" content="moringa, organic, health, wellness, dbanyan" />
       </Helmet>
-      
-      <div style={{ backgroundColor: '#fafafa', minHeight: '100vh' }}>
-        <Container size="xl" px="md" py="lg">
-          {/* Breadcrumbs */}
-          <ProfessionalBreadcrumbs />
+    <ToastContainer />
+      <Container size="xl" px="md" py="lg">
+        <ProfessionalBreadcrumbs />
 
-          {/* Header */}
-          <Group justify="space-between" align="center" mb="xl">
-            <Stack gap="xs">
-              <Title 
-                order={1} 
-                size="h2"
-                fw={600}
-                c="dark"
-                style={{ fontFamily: '"Lora", serif' }}
-              >
-                Premium Moringa Products
-              </Title>
-              <Text 
-                size="sm" 
-                c="dimmed"
-                style={{ fontFamily: '"Inter", sans-serif' }}
-              >
-                Discover our carefully curated selection of organic moringa products
-              </Text>
-            </Stack>
-            <CartIndicator />
-          </Group>
+        <Group justify="space-between" mb="xl">
+          <Stack gap="xs">
+            <Title order={1}>Premium Moringa Products</Title>
+            <Text size="sm" c="dimmed">Discover our curated organic moringa collection</Text>
+          </Stack>
+          <CartIndicator />
+        </Group>
 
-          {/* Product Listing Controls */}
-          <ProductListingControls
-            totalProducts={products.length}
-            filteredProducts={filteredAndSortedProducts.length}
-            onSortChange={handleSortChange}
-            onViewChange={handleViewChange}
-            currentView={viewMode}
-            activeFilters={appliedFilters}
-            onToggleFilters={handleToggleFilters}
-            showFilters={!showFilterSidebar}
-          />
+        <ProductListingControls
+          totalProducts={productList.length}
+          filteredProducts={filteredAndSortedProducts.length}
+          onSortChange={setSortBy}
+          onViewChange={setViewMode}
+          currentView={viewMode}
+          activeFilters={appliedFilters}
+          onToggleFilters={() => setShowFilterSidebar(!showFilterSidebar)}
+          showFilters={!showFilterSidebar}
+        />
 
-          {/* Main Content Area */}
-          <Grid gutter="lg">
-            {/* Filter Sidebar */}
-            {showFilterSidebar && (
-              <Grid.Col span={3}>
-                <ProfessionalFilterSidebar
-                  onFiltersChange={handleFiltersChange}
-                  products={products}
-                  activeFilters={appliedFilters}
-                  isVisible={showFilterSidebar}
-                />
-              </Grid.Col>
-            )}
-
-            {/* Products Grid */}
-            <Grid.Col span={showFilterSidebar ? 9 : 12}>
-              {filteredAndSortedProducts.length === 0 ? (
-                <Center py="xl">
-                  <Stack align="center" gap="md">
-                    <Text size="lg" fw={500}>No products found</Text>
-                    <Text size="sm" c="dimmed">
-                      Try adjusting your filters or search terms
-                    </Text>
-                  </Stack>
-                </Center>
-              ) : (
-                <SimpleGrid
-                  cols={viewMode === 'grid' ? 3 : 1}
-                  spacing="lg"
-                  breakpoints={[
-                    { maxWidth: 'md', cols: viewMode === 'grid' ? 2 : 1 },
-                    { maxWidth: 'sm', cols: 1 }
-                  ]}
-                >
-                  {filteredAndSortedProducts.map((product) => (
-                    <ProfessionalProductCard
-                      key={product.product_id}
-                      product={product}
-                      onAddToCart={(quantity) => handleAddToCart(product, quantity)}
-                      onViewDetails={() => handleViewDetails(product.product_id)}
-                      onToggleWishlist={() => toggleWishlist(product.product_id)}
-                      onAddToComparison={() => handleAddToComparison(product)}
-                      isInWishlist={wishlist.has(product.product_id)}
-                      isInComparison={comparisonProducts.some(p => p.product_id === product.product_id)}
-                      viewMode={viewMode}
-                    />
-                  ))}
-                </SimpleGrid>
-              )}
+        <Grid gutter="lg">
+          {showFilterSidebar && (
+            <Grid.Col span={3}>
+              <ProfessionalFilterSidebar
+                onFiltersChange={setAppliedFilters}
+                products={productList}
+                activeFilters={appliedFilters}
+                isVisible={showFilterSidebar}
+              />
             </Grid.Col>
-          </Grid>
-        </Container>
-      </div>
-      
-      {/* Product Comparison Modal */}
+          )}
+
+          <Grid.Col span={showFilterSidebar ? 9 : 12}>
+            {filteredAndSortedProducts.length === 0 ? (
+              <Center py="xl">
+                <Text>No products found</Text>
+              </Center>
+            ) : (
+              <SimpleGrid
+                cols={viewMode === 'grid' ? 3 : 1}
+                spacing="lg"
+                breakpoints={[
+                  { maxWidth: 'md', cols: viewMode === 'grid' ? 2 : 1 },
+                  { maxWidth: 'sm', cols: 1 }
+                ]}
+              >
+                {filteredAndSortedProducts.map(product => {
+                  const isInCart = cart.some(c => Number(c) === product.id);
+const isInWishlist = wishlistRedux.some(w => Number(w) === product.id);
+
+                  return <ProfessionalProductCard
+                    key={product.id}
+                    product={product}
+                    onAddToCart={(q) => handleAddToCart(product.id, q)}
+                    onViewDetails={() => handleViewDetails(product.id)}
+                    onToggleWishlist={() => toggleWishlist(product.id)}
+                    onAddToComparison={() => handleAddToComparison(product)}
+                    isInWishlist={isInWishlist}
+                    isInCart={isInCart}
+                    isInComparison={comparisonProducts.some(p => p.id === product.id)}
+                    viewMode={viewMode}
+                  />
+})}
+                
+              </SimpleGrid>
+            )}
+            <div className='flex  justify-center w-full'>
+                <BackendPagination
+                                                      currentPage={currentPage}
+                                                      totalPages={totalPages}
+                                                      onPageChange={(newPage) => setCurrentPage(newPage)}
+                                                    />
+                                                    </div>
+          </Grid.Col>
+        </Grid>
+        
+      </Container>
+
       <ProductComparisonModal
         opened={showComparisonModal}
         onClose={() => setShowComparisonModal(false)}
@@ -500,33 +411,29 @@ const ProductsPage = () => {
         onAddToCart={handleAddToCart}
         onViewDetails={handleViewDetails}
       />
+           
 
-      {/* Floating Comparison Widget */}
       {comparisonProducts.length > 0 && (
         <div
           style={{
             position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            zIndex: 1000,
-            backgroundColor: '#2C5F2D',
+            bottom: 20,
+            right: 20,
+            background: '#2C5F2D',
             color: 'white',
             padding: '12px 20px',
-            borderRadius: '50px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-            cursor: 'pointer',
-            transition: 'all 0.3s ease'
+            borderRadius: 50,
+            cursor: 'pointer'
           }}
           onClick={handleShowComparison}
         >
           <Group gap="xs">
             <IconGitCompare size={20} />
-            <Text size="sm" fw={600}>
-              Compare ({comparisonProducts.length})
-            </Text>
+            <Text fw={600}>Compare ({comparisonProducts.length})</Text>
           </Group>
         </div>
       )}
+ 
     </>
   );
 };

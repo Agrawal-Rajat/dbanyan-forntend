@@ -49,20 +49,43 @@ import {
 import { motion } from 'framer-motion';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchProducts } from '../../store/slices/productsSlice';
+import GetAllOrderData from '../../API_FILES/order_apis/GetAllOrderData';
+import GetCounts from '../../API_FILES/order_apis/GetCounts';
 
 const AdminDashboardOverview = () => {
   const dispatch = useDispatch();
   const { products } = useSelector((state) => state.products);
   const [timeRange, setTimeRange] = useState('7d');
   const [loading, setLoading] = useState(false);
+  const [order,setorder]=useState([])
+  const [counts,setcount]=useState({})
+  async function getrecentproducts() {
+    const res=await GetAllOrderData()
+    // console.log(res)
+    if(res?.data){
+      const latestFour = res?.data
+  .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  .slice(0, 4);
+  setorder(latestFour)
+    }
+    
+  }
+    async function GetCompleteCounts(){
+      const res=await GetCounts()
+      // console.log(res)
+      if(res?.count){
+        setcount(res?.count)
+      }
+    }
 
   useEffect(() => {
-    dispatch(fetchProducts());
-  }, [dispatch]);
+    getrecentproducts()
+    GetCompleteCounts()
+  }, []);
 
   // Professional KPI calculations with comprehensive business metrics
   const calculateKPIs = () => {
-    const totalProducts = products.length;
+    const totalProducts = counts.TotalRevenue
     const activeProducts = products.filter(p => p.status === 'active').length;
     const featuredProducts = products.filter(p => p.is_featured).length;
     const lowStockProducts = products.filter(p => p.stock_quantity < (p.low_stock_threshold || 10)).length;
@@ -82,32 +105,32 @@ const AdminDashboardOverview = () => {
 
     return {
       revenue: {
-        current: 89750,
-        previous: 76420,
+        current: counts?.TotalRevenue,
+        previous: counts?.TotalRevenue,
         change: 17.4,
         trend: 'up',
         target: 100000,
         completion: 89.75
       },
       orders: {
-        current: 156,
-        previous: 132,
+        current: counts?.OrderCount,
+        previous: counts?.OrderCount,
         change: 18.2,
         trend: 'up',
         target: 200,
         completion: 78.0
       },
       customers: {
-        current: 248,
-        previous: 231,
+        current: counts?.userCount || 985,
+        previous: counts?.userCount || 985,
         change: 7.4,
         trend: 'up',
         newCustomers: 17,
         returningCustomers: 231
       },
       avgOrderValue: {
-        current: 575.64,
-        previous: 578.95,
+        current: counts?.AverageOrderValue,
+        previous: counts?.AverageOrderValue,
         change: -0.6,
         trend: 'down'
       },
@@ -199,6 +222,21 @@ const AdminDashboardOverview = () => {
     };
     return colors[status] || 'gray';
   };
+  function formatDate(isoString) {
+  const date = new Date(isoString);
+
+  // Options for formatting
+  const options = {
+    year: "numeric",
+    month: "short", // "Jan", "Feb", ...
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  };
+
+  return date.toLocaleString("en-US", options);
+}
 
   // KPI Card Component
   const KPICard = ({ title, value, previousValue, change, trend, icon: Icon, prefix = '', suffix = '' }) => (
@@ -253,12 +291,12 @@ const AdminDashboardOverview = () => {
             onChange={setTimeRange}
             leftSection={<IconCalendar size={16} />}
           />
-          <Button leftSection={<IconRefresh size={16} />} variant="light">
+          <Button onClick={()=>GetCompleteCounts()} leftSection={<IconRefresh size={16} />} variant="light">
             Refresh
           </Button>
-          <Button leftSection={<IconDownload size={16} />} variant="outline">
+          {/* <Button leftSection={<IconDownload size={16} />} variant="outline">
             Export
-          </Button>
+          </Button> */}
         </Group>
       </Group>
 
@@ -397,7 +435,7 @@ const AdminDashboardOverview = () => {
           <Card shadow="sm" p="lg" radius="md" withBorder>
             <Group justify="space-between" mb="md">
               <Title order={4}>Recent Orders</Title>
-              <Button variant="light" size="sm">View All Orders</Button>
+              {/* <Button variant="light" size="sm">View All Orders</Button> */}
             </Group>
             
             <Table highlightOnHover>
@@ -411,17 +449,15 @@ const AdminDashboardOverview = () => {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {recentOrders.map((order) => (
-                  <Table.Tr key={order.id}>
+                {order?.map((order) => (
+                  <Table.Tr key={order.order_id}>
                     <Table.Td>
-                      <Text size="sm" fw={500}>{order.id}</Text>
+                      <Text size="sm" fw={500}>{order.order_id}</Text>
                     </Table.Td>
                     <Table.Td>
                       <Group gap="sm">
-                        <Avatar size="sm" radius="xl" color="blue">
-                          {order.avatar}
-                        </Avatar>
-                        <Text size="sm">{order.customer}</Text>
+                      
+                        <Text size="sm">{order.users?.full_name}</Text>
                       </Group>
                     </Table.Td>
                     <Table.Td>
@@ -433,7 +469,7 @@ const AdminDashboardOverview = () => {
                       </Badge>
                     </Table.Td>
                     <Table.Td>
-                      <Text size="xs" c="dimmed">{order.time}</Text>
+                      <Text size="xs" c="dimmed">{formatDate(order.created_at)}</Text>
                     </Table.Td>
                   </Table.Tr>
                 ))}

@@ -32,6 +32,8 @@ import AdminDashboard from './pages/AdminDashboard';
 
 // Components
 import NotificationContainer from './components/ui/NotificationContainer';
+import WishlistPage from './components/ui/WishlistPage';
+import Categories from './components/admin/Categories';
 
 // Components
 // import NotificationSystem from './components/layout/NotificationSystem';
@@ -102,6 +104,7 @@ function App() {
         
         {/* Cart & Checkout System */}
         <Route path="/cart" element={<EnhancedCartPage />} />
+        <Route path="/wishlist" element={<WishlistPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/order-success" element={<OrderSuccessPage />} />
         

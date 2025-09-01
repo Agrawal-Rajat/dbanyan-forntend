@@ -9,11 +9,15 @@ import { Helmet } from 'react-helmet-async';
 import { useDispatch, useSelector } from 'react-redux';
 import { loginUser, clearError } from '../store/slices/authSlice';
 import { IconLeaf, IconMail, IconLock, IconEye, IconEyeOff, IconAlertCircle, IconHome } from '@tabler/icons-react';
-
+import "react-toastify/dist/ReactToastify.css";
+import { toast, ToastContainer } from "react-toastify";
+import Login from '../API_FILES/auth_apis/Login';
+import CustomLoader from '../Loader/CustomLoader';
 const LoginPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
+    const [loading, setLoading] = useState(false);
+  
   // Get Redux state
   const { isLoading, error, user } = useSelector(state => state.auth);
 
@@ -58,25 +62,30 @@ const LoginPage = () => {
     }
 
     console.log('🚀 [LOGIN PAGE] Attempting login for:', formData.email);
-    
-    try {
-      const result = await dispatch(loginUser({
-        email: formData.email,
-        password: formData.password
-      })).unwrap();
+    setLoading(true)
+    const res=await Login(formData)
+    // console.log(res)
+    if(res.message=="Login successful"){
+       setLoading(false);
+        localStorage.setItem("tehunyzu@37673", Date.now() + 3600000);
 
-      console.log('✅ [LOGIN PAGE] Login successful:', result);
-      
-      // Redirect based on user role
-      if (result.user && result.user.is_admin) {
-        console.log('👑 [LOGIN PAGE] Redirecting admin to dashboard');
-        navigate('/admin');
-      } else {
-        console.log('🏠 [LOGIN PAGE] Redirecting user to home');
-        navigate('/');
-      }
-    } catch (error) {
-      console.error('❌ [LOGIN PAGE] Login failed:', error);
+            toast.success("Login SuccessFull", {
+                    position: "top-center",
+                  });
+            setTimeout(()=>{
+              navigate('/');
+            },1000)
+    }
+    else{
+      setLoading(false);
+            toast.error("Invalid Credentials!!", {
+                    position: "top-center",
+                  });
+                  setFormData({
+                    email:"",
+                    password:""
+                  });
+          
     }
   };
 
@@ -94,7 +103,10 @@ const LoginPage = () => {
         <title>Login | Dbanyan Group</title>
         <meta name="description" content="Login to your Dbanyan Group account to access exclusive features and manage your orders." />
       </Helmet>
-
+<ToastContainer />
+        {
+          loading && <CustomLoader/>
+        }
       <div 
         className="min-h-screen flex items-center justify-center py-12 px-4"
         style={{

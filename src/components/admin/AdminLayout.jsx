@@ -3,6 +3,7 @@
 
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import Logout from '../../API_FILES/auth_apis/Logout';
 import {
   AppShell,
   Text,
@@ -41,7 +42,8 @@ import {
   IconClock,
   IconCheck,
   IconX,
-  IconRefresh
+  IconRefresh,
+  IconCategoryPlus
 } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 
@@ -49,7 +51,10 @@ const AdminLayout = ({ activeView, onViewChange, children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [navbarOpened, setNavbarOpened] = useState(true);
-
+ const logoutUser = async() => {
+            const res=await Logout()
+      
+    };
   // Professional navigation structure following Amazon's pattern
   const navigationConfig = {
     primary: [
@@ -65,26 +70,35 @@ const AdminLayout = ({ activeView, onViewChange, children }) => {
         label: 'Products',
         icon: IconPackage,
         path: '/admin/products',
-        badge: '4',
+        badge: '',
         children: [
-          { id: 'all-products', label: 'All Products', path: '/admin/products' },
-          { id: 'add-product', label: 'Add New Product', path: '/admin/products/add' },
-          { id: 'categories', label: 'Categories', path: '/admin/products/categories' },
-          { id: 'inventory', label: 'Inventory', path: '/admin/products/inventory' }
+          // { id: 'all-products', label: 'All Products', path: '/admin/products' },
+          // { id: 'add-product', label: 'Add New Product', path: '/admin/products/add' },
+          // { id: 'categories', label: 'Product Categories', path: '/admin/products/categories' },
+          // { id: 'inventory', label: 'Inventory', path: '/admin/products/inventory' }
         ]
+      },
+
+      {
+        id: 'category',
+        label: 'Categories',
+        icon: IconCategoryPlus,
+        path: '/admin/category',
+        badge: '',
+        
       },
       {
         id: 'orders',
         label: 'Orders',
         icon: IconShoppingCart,
         path: '/admin/orders',
-        badge: '12',
+        badge: '',
         children: [
-          { id: 'all-orders', label: 'All Orders', path: '/admin/orders' },
-          { id: 'pending', label: 'Pending Orders', path: '/admin/orders/pending', badge: '5' },
-          { id: 'processing', label: 'Processing', path: '/admin/orders/processing', badge: '3' },
-          { id: 'shipped', label: 'Shipped', path: '/admin/orders/shipped', badge: '2' },
-          { id: 'completed', label: 'Completed', path: '/admin/orders/completed' }
+          // { id: 'all-orders', label: 'All Orders', path: '/admin/orders' },
+          // { id: 'pending', label: 'Pending Orders', path: '/admin/orders/pending', badge: '5' },
+          // { id: 'processing', label: 'Processing', path: '/admin/orders/processing', badge: '3' },
+          // { id: 'shipped', label: 'Shipped', path: '/admin/orders/shipped', badge: '2' },
+          // { id: 'completed', label: 'Completed', path: '/admin/orders/completed' }
         ]
       },
       {
@@ -92,38 +106,38 @@ const AdminLayout = ({ activeView, onViewChange, children }) => {
         label: 'Customers',
         icon: IconUsers,
         path: '/admin/customers',
-        badge: '248',
+        badge: '',
         children: [
-          { id: 'all-customers', label: 'All Customers', path: '/admin/customers' },
-          { id: 'new-customers', label: 'New Customers', path: '/admin/customers/new' },
-          { id: 'vip-customers', label: 'VIP Customers', path: '/admin/customers/vip' },
-          { id: 'customer-segments', label: 'Segments', path: '/admin/customers/segments' }
+          // { id: 'all-customers', label: 'All Customers', path: '/admin/customers' },
+          // { id: 'new-customers', label: 'New Customers', path: '/admin/customers/new' },
+          // { id: 'vip-customers', label: 'VIP Customers', path: '/admin/customers/vip' },
+          // { id: 'customer-segments', label: 'Segments', path: '/admin/customers/segments' }
         ]
       },
-      {
-        id: 'analytics',
-        label: 'Analytics',
-        icon: IconChartBar,
-        path: '/admin/analytics',
-        children: [
-          { id: 'overview', label: 'Overview', path: '/admin/analytics' },
-          { id: 'sales-reports', label: 'Sales Reports', path: '/admin/analytics/sales' },
-          { id: 'product-reports', label: 'Product Reports', path: '/admin/analytics/products' },
-          { id: 'customer-reports', label: 'Customer Reports', path: '/admin/analytics/customers' }
-        ]
-      },
-      {
-        id: 'settings',
-        label: 'Settings',
-        icon: IconSettings,
-        path: '/admin/settings',
-        children: [
-          { id: 'general', label: 'General Settings', path: '/admin/settings' },
-          { id: 'payment', label: 'Payment Settings', path: '/admin/settings/payment' },
-          { id: 'shipping', label: 'Shipping Settings', path: '/admin/settings/shipping' },
-          { id: 'notifications', label: 'Notifications', path: '/admin/settings/notifications' }
-        ]
-      }
+      // {
+      //   id: 'analytics',
+      //   label: 'Analytics',
+      //   icon: IconChartBar,
+      //   path: '/admin/analytics',
+      //   children: [
+      //     // { id: 'overview', label: 'Overview', path: '/admin/analytics' },
+      //     // { id: 'sales-reports', label: 'Sales Reports', path: '/admin/analytics/sales' },
+      //     // { id: 'product-reports', label: 'Product Reports', path: '/admin/analytics/products' },
+      //     // { id: 'customer-reports', label: 'Customer Reports', path: '/admin/analytics/customers' }
+      //   ]
+      // },
+      // {
+      //   id: 'settings',
+      //   label: 'Settings',
+      //   icon: IconSettings,
+      //   path: '/admin/settings',
+      //   children: [
+      //     // { id: 'general', label: 'General Settings', path: '/admin/settings' },
+      //     // { id: 'payment', label: 'Payment Settings', path: '/admin/settings/payment' },
+      //     // { id: 'shipping', label: 'Shipping Settings', path: '/admin/settings/shipping' },
+      //     // { id: 'notifications', label: 'Notifications', path: '/admin/settings/notifications' }
+      //   ]
+      // }
     ]
   };
 
@@ -137,6 +151,9 @@ const AdminLayout = ({ activeView, onViewChange, children }) => {
         break;
       case 'products':
         breadcrumbs.push({ title: 'Products', href: '#' });
+        break;
+      case 'categories':
+        breadcrumbs.push({ title: 'categories', href: '#' });
         break;
       case 'orders':
         breadcrumbs.push({ title: 'Orders', href: '#' });
@@ -160,11 +177,16 @@ const AdminLayout = ({ activeView, onViewChange, children }) => {
   };
 
   // Handle navigation
-  const handleNavigation = (viewId) => {
-    if (onViewChange) {
-      onViewChange(viewId);
-    }
-  };
+  // Handle navigation
+const handleNavigation = (viewId, path) => {
+  if (onViewChange) {
+    onViewChange(viewId);
+  }
+  // if (path) {
+  //   navigate(path);
+  // }
+};
+
 
   // Render navigation items
   const renderNavItems = (items, level = 0) => {
@@ -189,7 +211,7 @@ const AdminLayout = ({ activeView, onViewChange, children }) => {
               </Group>
             }
             active={isActive}
-            onClick={() => handleNavigation(item.id)}
+            onClick={() => handleNavigation(item.id,"")}
             style={{
               borderRadius: 8,
               marginBottom: 4,
@@ -214,7 +236,7 @@ const AdminLayout = ({ activeView, onViewChange, children }) => {
                     </Group>
                   }
                   active={activeView === child.id}
-                  onClick={() => handleNavigation(child.id)}
+                  onClick={() => handleNavigation(child.id,child.path)}
                   style={{ borderRadius: 6, fontSize: '0.875rem' }}
                 />
               ))}
@@ -282,7 +304,7 @@ const AdminLayout = ({ activeView, onViewChange, children }) => {
                 <Menu.Item 
                   leftSection={<IconLogout size={14} />}
                   color="red"
-                  onClick={() => navigate('/')}
+                  onClick={logoutUser}
                 >
                   Logout
                 </Menu.Item>

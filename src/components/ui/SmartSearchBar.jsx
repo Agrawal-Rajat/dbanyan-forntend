@@ -22,6 +22,8 @@ import {
 } from '@tabler/icons-react';
 import { searchProducts } from '../../store/slices/productsSlice';
 import { addNotification } from '../../store/slices/notificationSlice';
+import GetAllProductData from '../../API_FILES/product_apis/GetAllProductData';
+import { API_URL } from '../../NwConfig';
 
 const SmartSearchBar = ({ compact = false }) => {
   const navigate = useNavigate();
@@ -83,8 +85,9 @@ const SmartSearchBar = ({ compact = false }) => {
   const handleSearchSuggestions = async (searchQuery) => {
     setIsLoading(true);
     try {
-      const result = await dispatch(searchProducts({ query: searchQuery, limit: 5 })).unwrap();
-      setSuggestions(result.slice(0, 5));
+      const result = await GetAllProductData(1,1000)
+      console.log(result)
+      setSuggestions(result?.data?.slice(0, 5));
     } catch (error) {
       console.error('Search suggestions failed:', error);
     } finally {
@@ -115,7 +118,7 @@ const SmartSearchBar = ({ compact = false }) => {
 
   const handleSuggestionClick = (product) => {
     console.log('🎯 [SMART SEARCH] Suggestion clicked:', product.name);
-    navigate(`/products/${product.product_id}`);
+    window.location.href=`/products/${product.id}`;
     setIsOpen(false);
     setQuery('');
   };
@@ -207,7 +210,7 @@ const SmartSearchBar = ({ compact = false }) => {
                     <Text size="sm" fw={600} c="dimmed">Products</Text>
                     {suggestions.map((product) => (
                       <Group
-                        key={product.product_id}
+                        key={product.id}
                         p="xs"
                         style={{
                           cursor: 'pointer',
@@ -217,7 +220,7 @@ const SmartSearchBar = ({ compact = false }) => {
                         onClick={() => handleSuggestionClick(product)}
                       >
                         <Image
-                          src={product.images?.[0] || '/images/moringaPowderPic.jpg'}
+                          src={`${API_URL}/${product?.images[0]}` || '/images/moringaPowderPic.jpg'}
                           alt={product.name}
                           w={40}
                           h={40}

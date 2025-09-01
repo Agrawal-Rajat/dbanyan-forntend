@@ -40,23 +40,42 @@ import {
 
 import { notifications } from '@mantine/notifications';
 import { addNotification } from '../../store/slices/notificationSlice';
+import { addcart } from '../../store/slices/WishlistAndCartSlice';
 
+import GetFeaturedProducts from "../../API_FILES/product_apis/GetFeaturedProducts"
+import AddToCart from "../../API_FILES/product_apis/AddToCart"
+import { API_URL } from "../../NwConfig"
+import "react-toastify/dist/ReactToastify.css";
+import CustomLoader from '../../Loader/CustomLoader';
+import { toast, ToastContainer } from "react-toastify";
 const ModernProductsSection = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+    const cart=useSelector((state)=>state.wishlistandcart.cart)
+console.log(cart);
 
+  // const isInCart = cart.some(item => Number(item) === prdata?.id);
+  
+// console.log(API_URL)
   // Redux selectors
-  const products = useSelector(selectFeaturedProducts);
+  // const products = useSelector(selectFeaturedProducts);
   const isLoading = useSelector(selectProductsLoading);
   const error = useSelector(selectProductsError);
   const cartItemCount = useSelector(selectCartItemCount);
-  
+  const [products,setProducts]=useState([])
   const [isRefreshing, setIsRefreshing] = useState(false);
+    const getfeatureproduct=async()=>{
+      const res=await GetFeaturedProducts()
+      // console.log(res)
+      if(res?.data){
+        setProducts(res?.data)
+      }
+    }
 
   useEffect(() => {
     console.log('🎯 [MODERN PRODUCTS SECTION] Component mounted, fetching featured products...');
-    dispatch(fetchFeaturedProducts(6));
-  }, [dispatch]);
+    getfeatureproduct()
+  }, []);
 
   useEffect(() => {
     console.log('📊 [MODERN PRODUCTS SECTION] Products state updated:', {
@@ -72,13 +91,7 @@ const ModernProductsSection = () => {
     console.log('🔄 [MODERN PRODUCTS SECTION] Manual refresh triggered');
     setIsRefreshing(true);
     try {
-      await dispatch(fetchFeaturedProducts(6)).unwrap();
-      notifications.show({
-        title: 'Products Updated',
-        message: 'Product catalog has been refreshed',
-        color: 'green'
-      });
-      console.log('✅ [MODERN PRODUCTS SECTION] Products refreshed successfully');
+      getfeatureproduct()
     } catch (error) {
       console.error('❌ [MODERN PRODUCTS SECTION] Refresh failed:', error);
       notifications.show({
@@ -90,31 +103,49 @@ const ModernProductsSection = () => {
       setIsRefreshing(false);
     }
   };
+  const [spinner,setSpinner]=useState(false)
+  const handleAddToCart = async(product) => {
+   const expiry = localStorage.getItem("tehunyzu@37673");
+    if(!expiry){
+      toast.error("Signup or Login First", {
+                    position: "top-center",
+                  });
+                  setTimeout(() => {
+                    
+                    navigate("/signup")
+                  }, 1000);
 
-  const handleAddToCart = (product) => {
-    console.log('🛒 [MODERN PRODUCTS SECTION] Adding product to cart:', {
-      productId: product.product_id,
-      productName: product.name,
-      price: product.price
-    });
+    }
+    else{
+setSpinner(true)
+          const form={
+            id:product.id
+          }
+          
+          const res=await AddToCart(form)
+          // console.log(res)
+          // console.log(res)
+          if(res.message==="Added To Cart"){
+            setSpinner(false)
+            toast.success(res.message, {
+                          position: "top-center",
+                        });
+                        setTimeout(() => {
+                          dispatch(addcart(product.id))
+                          navigate("/cart")
+                        }, 1000);
+          }
+          else{
+            setSpinner(false)
+            toast.error("Not Added To Cart Try Again later", {
+                          position: "top-center",
+                        });
+          }
     
-    dispatch(addToCart({
-      productId: product.product_id,
-      productName: product.name,
-      price: product.price,
-      quantity: 1,
-      image: product.images?.[0] || '/images/moringaPowderPic.jpg'
-    }));
-    
-    // Show professional notification
-    dispatch(addNotification({
-      type: 'cart-add',
-      message: `${product.name} has been added to your cart`,
-      duration: 3000
-    }));
-    
-    console.log('✅ [MODERN PRODUCTS SECTION] Product added to cart successfully');
-  };
+          // console.log("add to cart",product,quantity)
+        
+    }
+    };
 
   const handleViewAllProducts = () => {
     console.log('🔗 [MODERN PRODUCTS SECTION] Navigating to products page');
@@ -122,7 +153,7 @@ const ModernProductsSection = () => {
   };
 
   // Show error state
-  if (error) {
+  if (error || products.length==0) {
     console.error('💥 [MODERN PRODUCTS SECTION] Error state:', error);
     return (
       <Box className="py-20 bg-white">
@@ -161,6 +192,9 @@ const ModernProductsSection = () => {
     productCount: products.length,
     cartItems: cartItemCount
   });
+  if(spinner){
+    return <CustomLoader />
+  }
 
   return (
     <Box className="py-20 bg-white">
@@ -173,6 +207,8 @@ const ModernProductsSection = () => {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
+              <ToastContainer />
+
           <div className="flex flex-col items-center justify-center text-center w-full">
             <Badge 
               size="lg" 
@@ -208,14 +244,16 @@ const ModernProductsSection = () => {
           {products.length > 0 ? (
             products.slice(0, 4).map((product, index) => {
               console.log(`🏷️ [MODERN PRODUCTS SECTION] Rendering product: ${product.name}`, {
-                productId: product.product_id,
+                productId: product.id,
                 price: product.price,
                 category: product.category,
-                inStock: product.stock_quantity > 0
+                inStock: product.quantity > 0
               });
+                const isInCart = cart.some(item => Number(item) === product?.id);
+
 
               return (
-                <Grid.Col key={product.product_id} span={{ base: 12, sm: 6, lg: 3 }}>
+                <Grid.Col key={product.id} span={{ base: 12, sm: 6, lg: 3 }}>
                   <motion.div
                     initial={{ opacity: 0, y: 30 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -236,7 +274,8 @@ const ModernProductsSection = () => {
                         {/* Product Image */}
                         <Box className="relative h-64 bg-gradient-to-br from-emerald-50 to-green-100">
                           <Image
-                            src={product.images?.[0] || '/images/moringa-placeholder.jpg'}
+                              src={`${API_URL}/${product?.images?.[0] || '/images/placeholder.jpg'}`}
+
                             alt={product.name}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             fallbackSrc="/images/moringa-placeholder.jpg"
@@ -254,14 +293,14 @@ const ModernProductsSection = () => {
                                 Organic
                               </Badge>
                             )}
-                            {product.sale_price && product.sale_price < product.price && (
+                            {product.compare_at_price && product.compare_at_price < product.price && (
                               <Badge 
                                 size="sm" 
                                 variant="filled" 
                                 color="red"
                                 leftSection={<IconTrendingUp size={12} />}
                               >
-                                {Math.round(((product.price - product.sale_price) / product.price) * 100)}% OFF
+                                {Math.round(((product.price - product.compare_at_price) / product.price) * 100)}% OFF
                               </Badge>
                             )}
                           </Box>
@@ -272,7 +311,7 @@ const ModernProductsSection = () => {
                               size="xs"
                               variant="white"
                               className="shadow-lg"
-                              onClick={() => navigate(`/products/${product.product_id}`)}
+                              onClick={() => window.location.href=`/products/${product.id}`}
                               leftSection={<IconEye size={14} />}
                             >
                               View
@@ -314,14 +353,14 @@ const ModernProductsSection = () => {
                               className="font-bold text-gray-800"
                               style={{ fontFamily: 'Inter, sans-serif' }}
                             >
-                              ${product.sale_price || product.price}
+                              ₹{product.compare_at_price || product.price}
                             </Text>
-                            {product.sale_price && product.sale_price < product.price && (
+                            {product.compare_at_price && product.compare_at_price < product.price && (
                               <Text 
                                 size="sm" 
                                 className="text-gray-500 line-through"
                               >
-                                ${product.price}
+                                ₹{product.price}
                               </Text>
                             )}
                           </Group>
@@ -334,11 +373,11 @@ const ModernProductsSection = () => {
                         color="green"
                         fullWidth
                         leftSection={<IconShoppingCart size={16} />}
-                        onClick={() => handleAddToCart(product)}
+                        onClick={() => {isInCart?console.log("incart"):handleAddToCart(product)}}
                         className="mt-2"
                         disabled={product.stock_quantity === 0}
                       >
-                        {product.stock_quantity === 0 ? 'Out of Stock' : 'Add to Cart'}
+                        {isInCart ? 'Already In Cart' : 'Add to Cart'}
                       </Button>
                     </Stack>
                   </Card>
